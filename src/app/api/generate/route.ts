@@ -14,14 +14,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('=== Generate API called ===');
+    console.log('Topic:', body.topic);
+    console.log('Keyword:', body.mainKeyword);
+
     // Generate content using Groq AI
     const result = await generateSEOContent(body);
 
+    console.log('=== Content generated successfully ===');
+    
     return NextResponse.json(result);
-  } catch (error) {
-    console.error('Generate API Error:', error);
+  } catch (error: any) {
+    console.error('=== Generate API Error ===');
+    console.error('Error:', error);
+    console.error('Stack:', error.stack);
+    
     return NextResponse.json(
-      { error: 'Failed to generate content' },
+      { 
+        error: error.message || 'Failed to generate content',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     );
   }
