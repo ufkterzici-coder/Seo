@@ -6,10 +6,10 @@ import { FileText, LayoutDashboard, Search, FileType } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/create', label: 'Create', icon: FileType },
-  { href: '/contents', label: 'Contents', icon: FileText },
-  { href: '/analyze', label: 'Analyze', icon: Search },
+  { href: '/dashboard', label: 'Panel', icon: LayoutDashboard },
+  { href: '/create', label: 'Oluştur', icon: FileType },
+  { href: '/contents', label: 'İçerikler', icon: FileText },
+  { href: '/analyze', label: 'Analiz', icon: Search },
 ];
 
 export default function Navbar() {
@@ -21,7 +21,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
             <Link href="/dashboard" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-black rounded flex items-center justify-center">
                 <span className="text-white font-bold text-lg">S</span>
               </div>
               <span className="text-xl font-bold text-gray-900">SEO Studio</span>
@@ -39,8 +39,8 @@ export default function Navbar() {
                     className={cn(
                       'flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
                       isActive
-                        ? 'bg-primary-light text-primary'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        ? 'bg-gray-900 text-white'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                     )}
                   >
                     <Icon className="w-4 h-4" />
@@ -48,12 +48,6 @@ export default function Navbar() {
                   </Link>
                 );
               })}
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="text-gray-600 text-sm font-medium">U</span>
             </div>
           </div>
         </div>

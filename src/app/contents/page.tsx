@@ -9,13 +9,12 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { formatDate } from '@/lib/utils/format';
-import { Content } from '@/types/content';
 
 export default function ContentsPage() {
-  const [contents, setContents] = useState<Content[]>([]);
-  const [filteredContents, setFilteredContents] = useState<Content[]>([]);
+  const [contents, setContents] = useState<any[]>([]);
+  const [filteredContents, setFilteredContents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -26,7 +25,7 @@ export default function ContentsPage() {
 
   useEffect(() => {
     filterContents();
-  }, [searchQuery, statusFilter, contents]);
+  }, [contents, searchQuery, statusFilter]);
 
   async function loadContents() {
     try {
@@ -45,139 +44,131 @@ export default function ContentsPage() {
   function filterContents() {
     let filtered = [...contents];
 
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(c => c.status === statusFilter);
-    }
-
+    // Search filter
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        c =>
-          c.title?.toLowerCase().includes(query) ||
-          c.main_keyword?.toLowerCase().includes(query)
+        (c) =>
+          c.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          c.main_keyword?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
-    setFilteredContents(filtered);
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to delete this content?')) return;
-
-    try {
-      const response = await fetch(`/api/contents?id=${id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        loadContents();
-      }
-    } catch (error) {
-      console.error('Failed to delete content:', error);
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((c) => c.status === statusFilter);
     }
+
+    setFilteredContents(filtered);
   }
 
   return (
     <>
       <Navbar />
       <Container>
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Contents</h1>
-            <p className="text-gray-600">Manage your SEO contents</p>
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">İçerikler</h1>
+              <p className="text-gray-600">Tüm içeriklerinizi görüntüleyin ve yönetin</p>
+            </div>
+            <Link href="/create">
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Yeni İçerik
+              </Button>
+            </Link>
           </div>
-          <Link href="/create">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Create New
-            </Button>
-          </Link>
-        </div>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="md:col-span-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <div className="flex items-center space-x-4">
+            <div className="flex-1">
               <Input
-                placeholder="Search contents..."
-                className="pl-10"
+                placeholder="İçeriklerde ara..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                icon={<Search className="w-4 h-4 text-gray-400" />}
               />
             </div>
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              options={[
+                { value: 'all', label: 'Tümü' },
+                { value: 'draft', label: 'Taslak' },
+                { value: 'published', label: 'Yayında' },
+              ]}
+            />
           </div>
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            options={[
-              { value: 'all', label: 'All Status' },
-              { value: 'draft', label: 'Draft' },
-              { value: 'published', label: 'Published' },
-            ]}
-          />
         </div>
 
-        {/* Contents List */}
         {loading ? (
           <Card>
             <CardContent className="py-8 text-center text-gray-500">
-              Loading...
+              Yükleniyor...
             </CardContent>
           </Card>
         ) : filteredContents.length === 0 ? (
           <Card>
-            <CardContent className="py-8 text-center text-gray-500">
-              No contents found
+            <CardContent className="py-12 text-center">
+              <div className="text-gray-500 mb-4">
+                {searchQuery || statusFilter !== 'all'
+                  ? 'Sonuç bulunamadı'
+                  : 'Henüz içerik yok'}
+              </div>
+              {!searchQuery && statusFilter === 'all' && (
+                <Link href="/create">
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    İlk İçeriğinizi Oluşturun
+                  </Button>
+                </Link>
+              )}
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardContent className="p-0">
-              <div className="divide-y divide-gray-100">
-                {filteredContents.map((content) => (
-                  <div key={content.id} className="p-6 hover:bg-gray-50 transition-colors">
+          <div className="space-y-4">
+            {filteredContents.map((content) => (
+              <Link key={content.id} href={`/contents/${content.id}`}>
+                <Card hover>
+                  <CardContent className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          {content.title || 'Untitled'}
-                        </h3>
-                        <div className="flex items-center space-x-3 text-sm text-gray-600">
-                          <span>{content.main_keyword}</span>
+                        <div className="flex items-center space-x-3 mb-2">
+                          <h2 className="text-xl font-semibold text-gray-900">
+                            {content.title || 'Başlıksız'}
+                          </h2>
+                          <Badge variant={content.status === 'published' ? 'success' : 'default'}>
+                            {content.status === 'published' ? 'Yayında' : 'Taslak'}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center space-x-4 text-sm text-gray-600">
+                          <span className="font-medium">{content.main_keyword}</span>
                           <span>•</span>
-                          <span>{content.word_count?.toLocaleString()} words</span>
+                          <span>{content.word_count} kelime</span>
+                          <span>•</span>
+                          <span>{content.reading_time} dk okuma</span>
                           <span>•</span>
                           <span>{formatDate(content.created_at)}</span>
                         </div>
-                        <div className="flex items-center space-x-3 mt-3">
-                          <div className="flex items-center space-x-2">
-                            <div className="text-sm font-bold text-gray-900">
-                              {content.seo_score}/100
-                            </div>
-                            <Badge variant={content.status === 'published' ? 'success' : 'default'}>
-                              {content.status}
-                            </Badge>
-                          </div>
-                        </div>
                       </div>
-                      <div className="flex items-center space-x-2 ml-4">
-                        <Button variant="secondary" size="sm">
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(content.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </Button>
+                      <div className="ml-6 text-center">
+                        <div className="text-3xl font-bold text-gray-900">
+                          {content.seo_score}
+                        </div>
+                        <div className="text-xs text-gray-600">SEO Skoru</div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {filteredContents.length > 0 && (
+          <div className="mt-6 text-center text-sm text-gray-600">
+            {filteredContents.length} içerik gösteriliyor
+            {(searchQuery || statusFilter !== 'all') && ` (${contents.length} içerikten)`}
+          </div>
         )}
       </Container>
     </>

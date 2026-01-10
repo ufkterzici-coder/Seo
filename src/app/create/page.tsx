@@ -17,6 +17,7 @@ import { readingTime } from '@/lib/utils/format';
 export default function CreatePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     topic: '',
     mainKeyword: '',
@@ -33,7 +34,7 @@ export default function CreatePage() {
 
   async function handleGenerate() {
     if (!formData.topic || !formData.mainKeyword) {
-      setError('Topic and Main Keyword are required');
+      setError('Konu ve Ana Anahtar Kelime gereklidir');
       return;
     }
 
@@ -60,7 +61,7 @@ export default function CreatePage() {
       const data = await response.json();
       setGeneratedContent(data);
     } catch (err) {
-      setError('Failed to generate content. Please try again.');
+      setError('İçerik oluşturulamadı. Lütfen tekrar deneyin.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -70,6 +71,7 @@ export default function CreatePage() {
   async function handleSave() {
     if (!generatedContent) return;
 
+    setSaving(true);
     try {
       const wordCount = generatedContent.fullMarkdown.split(/\s+/).length;
       const response = await fetch('/api/contents', {
@@ -101,11 +103,14 @@ export default function CreatePage() {
       });
 
       if (response.ok) {
-        router.push('/contents');
+        const savedContent = await response.json();
+        router.push(`/contents/${savedContent.id}`);
       }
     } catch (err) {
-      setError('Failed to save content');
+      setError('İçerik kaydedilemedi');
       console.error(err);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -118,8 +123,8 @@ export default function CreatePage() {
       <Navbar />
       <Container size="full">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Content</h1>
-          <p className="text-gray-600">Generate SEO-optimized articles with AI</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Yeni İçerik Oluştur</h1>
+          <p className="text-gray-600">AI ile SEO uyumlu makale oluşturun</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -128,14 +133,14 @@ export default function CreatePage() {
             <Card>
               <div className="space-y-4">
                 <Input
-                  label="Topic *"
+                  label="Konu *"
                   placeholder="En İyi Kablosuz Kulaklıklar 2025"
                   value={formData.topic}
                   onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
                 />
 
                 <Input
-                  label="Main Keyword *"
+                  label="Ana Anahtar Kelime *"
                   placeholder="kablosuz kulaklık"
                   value={formData.mainKeyword}
                   onChange={(e) => setFormData({ ...formData, mainKeyword: e.target.value })}
@@ -143,20 +148,20 @@ export default function CreatePage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <Input
-                    label="Word Count"
+                    label="Kelime Sayısı"
                     type="number"
                     value={formData.wordCount}
                     onChange={(e) => setFormData({ ...formData, wordCount: parseInt(e.target.value) })}
                   />
 
                   <Select
-                    label="Type"
+                    label="Tip"
                     value={formData.contentType}
                     onChange={(e) => setFormData({ ...formData, contentType: e.target.value })}
                     options={[
-                      { value: 'article', label: 'Article' },
+                      { value: 'article', label: 'Makale' },
                       { value: 'blog', label: 'Blog' },
-                      { value: 'product', label: 'Product' },
+                      { value: 'product', label: 'Ürün' },
                       { value: 'landing', label: 'Landing' },
                     ]}
                   />
@@ -164,32 +169,32 @@ export default function CreatePage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <Select
-                    label="Tone"
+                    label="Ton"
                     value={formData.tone}
                     onChange={(e) => setFormData({ ...formData, tone: e.target.value })}
                     options={[
-                      { value: 'professional', label: 'Professional' },
-                      { value: 'casual', label: 'Casual' },
-                      { value: 'expert', label: 'Expert' },
-                      { value: 'friendly', label: 'Friendly' },
+                      { value: 'professional', label: 'Profesyonel' },
+                      { value: 'casual', label: 'Rahat' },
+                      { value: 'expert', label: 'Uzman' },
+                      { value: 'friendly', label: 'Samimi' },
                     ]}
                   />
 
                   <Select
-                    label="Intent"
+                    label="Amaç"
                     value={formData.intent}
                     onChange={(e) => setFormData({ ...formData, intent: e.target.value })}
                     options={[
-                      { value: 'auto', label: 'Auto' },
-                      { value: 'informational', label: 'Informational' },
-                      { value: 'transactional', label: 'Transactional' },
-                      { value: 'commercial', label: 'Commercial' },
+                      { value: 'auto', label: 'Otomatik' },
+                      { value: 'informational', label: 'Bilgilendirme' },
+                      { value: 'transactional', label: 'Satış' },
+                      { value: 'commercial', label: 'Ticari' },
                     ]}
                   />
                 </div>
 
                 <Textarea
-                  label="Competitor URLs (optional)"
+                  label="Rakip URL'ler (opsiyonel)"
                   placeholder="https://example.com/article"
                   rows={3}
                   value={formData.competitorUrls}
@@ -197,7 +202,7 @@ export default function CreatePage() {
                 />
 
                 <Textarea
-                  label="Additional Instructions"
+                  label="Ek Talimatlar"
                   placeholder="Fiyat karşılaştırma tablosu ekle..."
                   rows={3}
                   value={formData.additionalInstructions}
@@ -217,7 +222,7 @@ export default function CreatePage() {
                   className="w-full"
                 >
                   <Rocket className="w-4 h-4 mr-2" />
-                  Generate Content
+                  İçerik Oluştur
                 </Button>
               </div>
             </Card>
@@ -227,7 +232,7 @@ export default function CreatePage() {
               <>
                 <Card>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Generated Content</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Oluşturulan İçerik</h3>
                     <div className="flex space-x-2">
                       <Button
                         variant="ghost"
@@ -235,11 +240,11 @@ export default function CreatePage() {
                         onClick={() => copyToClipboard(generatedContent.fullMarkdown)}
                       >
                         <Copy className="w-4 h-4 mr-1" />
-                        Copy
+                        Kopyala
                       </Button>
-                      <Button size="sm" onClick={handleSave}>
+                      <Button size="sm" onClick={handleSave} loading={saving} disabled={saving}>
                         <Save className="w-4 h-4 mr-1" />
-                        Save
+                        Kaydet
                       </Button>
                     </div>
                   </div>
@@ -251,7 +256,7 @@ export default function CreatePage() {
                 </Card>
 
                 <Card>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Schema Markup</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Schema İşaretlemesi</h3>
                   <div className="flex justify-end mb-2">
                     <Button
                       variant="ghost"
@@ -259,7 +264,7 @@ export default function CreatePage() {
                       onClick={() => copyToClipboard(JSON.stringify(generatedContent.schema, null, 2))}
                     >
                       <Copy className="w-4 h-4 mr-1" />
-                      Copy Schema
+                      Schema Kopyala
                     </Button>
                   </div>
                   <pre className="bg-gray-50 p-4 rounded-lg text-xs overflow-auto">
@@ -277,11 +282,11 @@ export default function CreatePage() {
                 <SEOScoreCard score={generatedContent.seoScore} />
 
                 <Card>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Meta Tags</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Meta Etiketleri</h3>
                   <div className="space-y-3">
                     <div>
                       <label className="text-xs font-medium text-gray-600 block mb-1">
-                        Title ({generatedContent.meta.title.length}/60)
+                        Başlık ({generatedContent.meta.title.length}/60)
                       </label>
                       <div className="text-sm text-gray-900 p-3 bg-gray-50 rounded">
                         {generatedContent.meta.title}
@@ -289,7 +294,7 @@ export default function CreatePage() {
                     </div>
                     <div>
                       <label className="text-xs font-medium text-gray-600 block mb-1">
-                        Description ({generatedContent.meta.description.length}/155)
+                        Açıklama ({generatedContent.meta.description.length}/155)
                       </label>
                       <div className="text-sm text-gray-900 p-3 bg-gray-50 rounded">
                         {generatedContent.meta.description}
@@ -299,7 +304,7 @@ export default function CreatePage() {
                 </Card>
 
                 <Card>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Content Structure</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">İçerik Yapısı</h3>
                   <div className="space-y-2 text-sm">
                     <div className="font-semibold text-gray-900">
                       H1: {generatedContent.structure.h1}

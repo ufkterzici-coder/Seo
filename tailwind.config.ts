@@ -6,9 +6,9 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#FF6B00',
-          hover: '#E55D00',
-          light: '#FFF4ED',
+          DEFAULT: '#000000',
+          hover: '#1F2937',
+          light: '#F3F4F6',
         },
         gray: {
           50: '#F9FAFB',

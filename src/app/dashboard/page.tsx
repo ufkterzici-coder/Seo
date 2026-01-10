@@ -47,8 +47,8 @@ export default function DashboardPage() {
       <Navbar />
       <Container>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome back! 👋</h1>
-          <p className="text-gray-600">Create SEO-optimized content with AI</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Hoş geldiniz! 👋</h1>
+          <p className="text-gray-600">AI ile SEO uyumlu içerik oluşturun</p>
         </div>
 
         {/* Stats Grid */}
@@ -57,7 +57,7 @@ export default function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total</p>
+                  <p className="text-sm font-medium text-gray-600">Toplam</p>
                   <p className="text-3xl font-bold text-gray-900 mt-1">{stats.total}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -71,7 +71,7 @@ export default function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Published</p>
+                  <p className="text-sm font-medium text-gray-600">Yayında</p>
                   <p className="text-3xl font-bold text-gray-900 mt-1">{stats.published}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -85,7 +85,7 @@ export default function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Drafts</p>
+                  <p className="text-sm font-medium text-gray-600">Taslak</p>
                   <p className="text-3xl font-bold text-gray-900 mt-1">{stats.drafts}</p>
                 </div>
                 <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -99,7 +99,7 @@ export default function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Avg Score</p>
+                  <p className="text-sm font-medium text-gray-600">Ort. Skor</p>
                   <p className="text-3xl font-bold text-gray-900 mt-1">{stats.avgScore}</p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -112,19 +112,19 @@ export default function DashboardPage() {
 
         {/* Quick Actions */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Hızlı İşlemler</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card hover>
               <CardContent className="pt-6">
                 <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-primary-light rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Pencil className="w-6 h-6 text-primary" />
+                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Pencil className="w-6 h-6 text-gray-900" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Create Content</h3>
-                    <p className="text-sm text-gray-600 mb-4">Generate SEO article with AI</p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">İçerik Oluştur</h3>
+                    <p className="text-sm text-gray-600 mb-4">AI ile SEO uyumlu makale üret</p>
                     <Link href="/create">
-                      <Button size="sm">Get Started</Button>
+                      <Button size="sm">Başla</Button>
                     </Link>
                   </div>
                 </div>
@@ -134,14 +134,14 @@ export default function DashboardPage() {
             <Card hover>
               <CardContent className="pt-6">
                 <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Search className="w-6 h-6 text-blue-600" />
+                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Search className="w-6 h-6 text-gray-900" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Analyze Competitor</h3>
-                    <p className="text-sm text-gray-600 mb-4">Scrape & analyze URL</p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Rakip Analizi</h3>
+                    <p className="text-sm text-gray-600 mb-4">URL analiz et ve incele</p>
                     <Link href="/analyze">
-                      <Button variant="secondary" size="sm">Start</Button>
+                      <Button variant="secondary" size="sm">Başla</Button>
                     </Link>
                   </div>
                 </div>
@@ -153,22 +153,22 @@ export default function DashboardPage() {
         {/* Recent Contents */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Recent Contents</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Son İçerikler</h2>
             <Link href="/contents">
-              <Button variant="ghost" size="sm">View All →</Button>
+              <Button variant="ghost" size="sm">Tümünü Gör →</Button>
             </Link>
           </div>
 
           {loading ? (
             <Card>
               <CardContent className="py-8 text-center text-gray-500">
-                Loading...
+                Yükleniyor...
               </CardContent>
             </Card>
           ) : recentContents.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-gray-500">
-                No contents yet. Create your first content!
+                Henüz içerik yok. İlk içeriğinizi oluşturun!
               </CardContent>
             </Card>
           ) : (
@@ -176,16 +176,20 @@ export default function DashboardPage() {
               <CardContent className="p-0">
                 <div className="divide-y divide-gray-100">
                   {recentContents.map((content) => (
-                    <div key={content.id} className="p-4 hover:bg-gray-50 transition-colors">
+                    <Link
+                      key={content.id}
+                      href={`/contents/${content.id}`}
+                      className="block p-4 hover:bg-gray-50 transition-colors"
+                    >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <h3 className="text-base font-semibold text-gray-900 mb-1">
-                            {content.title || 'Untitled'}
+                            {content.title || 'Başlıksız'}
                           </h3>
                           <div className="flex items-center space-x-3 text-sm text-gray-600">
                             <span>{content.main_keyword}</span>
                             <span>•</span>
-                            <span>{content.word_count} words</span>
+                            <span>{content.word_count} kelime</span>
                             <span>•</span>
                             <span>{formatDate(content.created_at)}</span>
                           </div>
@@ -195,11 +199,11 @@ export default function DashboardPage() {
                             <div className="text-lg font-bold text-gray-900">{content.seo_score}/100</div>
                           </div>
                           <Badge variant={content.status === 'published' ? 'success' : 'default'}>
-                            {content.status}
+                            {content.status === 'published' ? 'Yayında' : 'Taslak'}
                           </Badge>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </CardContent>

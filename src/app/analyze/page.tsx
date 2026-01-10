@@ -18,12 +18,12 @@ export default function AnalyzePage() {
     const urlList = urls.split('\n').map(u => u.trim()).filter(Boolean);
 
     if (urlList.length === 0) {
-      setError('Please enter at least one URL');
+      setError('Lütfen en az bir URL girin');
       return;
     }
 
     if (urlList.length > 5) {
-      setError('Maximum 5 URLs allowed');
+      setError('Maksimum 5 URL analiz edilebilir');
       return;
     }
 
@@ -44,7 +44,7 @@ export default function AnalyzePage() {
       const data = await response.json();
       setResults(data);
     } catch (err) {
-      setError('Failed to analyze competitors. Please try again.');
+      setError('Rakip analizi yapılamadı. Lütfen tekrar deneyin.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -56,16 +56,16 @@ export default function AnalyzePage() {
       <Navbar />
       <Container>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Competitor Analysis</h1>
-          <p className="text-gray-600">Analyze competitor content to improve your SEO</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Rakip Analizi</h1>
+          <p className="text-gray-600">Rakip içeriklerini analiz edin ve SEO stratejinizi geliştirin</p>
         </div>
 
         <Card className="mb-6">
           <CardContent>
             <Textarea
-              label="Enter URLs to analyze (one per line, max 5)"
+              label="Analiz edilecek URL'leri girin (her satıra bir URL, maks. 5)"
               rows={5}
-              placeholder="https://competitor1.com/article&#10;https://competitor2.com/post"
+              placeholder="https://rakip1.com/makale&#10;https://rakip2.com/blog"
               value={urls}
               onChange={(e) => setUrls(e.target.value)}
             />
@@ -79,7 +79,7 @@ export default function AnalyzePage() {
             <div className="mt-4 flex justify-end">
               <Button onClick={handleAnalyze} loading={loading} disabled={loading}>
                 <Search className="w-4 h-4 mr-2" />
-                Analyze
+                Analiz Et
               </Button>
             </div>
           </CardContent>
@@ -89,7 +89,7 @@ export default function AnalyzePage() {
           <>
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle>Analysis Results</CardTitle>
+                <CardTitle>Analiz Sonuçları</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -97,9 +97,9 @@ export default function AnalyzePage() {
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-3 px-4 font-medium text-gray-700">URL</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Words</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Headings</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Images</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">Kelime</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">Başlık</th>
+                        <th className="text-left py-3 px-4 font-medium text-gray-700">Görsel</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -112,7 +112,7 @@ export default function AnalyzePage() {
                         </tr>
                       ))}
                       <tr className="bg-gray-50 font-semibold">
-                        <td className="py-3 px-4 text-gray-900">Average</td>
+                        <td className="py-3 px-4 text-gray-900">Ortalama</td>
                         <td className="py-3 px-4 text-gray-900">{results.averageStats.wordCount.toLocaleString()}</td>
                         <td className="py-3 px-4 text-gray-900">{results.averageStats.headingCount}</td>
                         <td className="py-3 px-4 text-gray-900">{results.averageStats.imageCount}</td>
@@ -125,14 +125,14 @@ export default function AnalyzePage() {
 
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle>Common Keywords</CardTitle>
+                <CardTitle>Ortak Anahtar Kelimeler</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
                   {results.commonKeywords.map((keyword: string, idx: number) => (
                     <span
                       key={idx}
-                      className="px-3 py-1 bg-primary-light text-primary rounded-full text-sm font-medium"
+                      className="px-3 py-1 bg-gray-100 text-gray-900 rounded-full text-sm font-medium"
                     >
                       {keyword}
                     </span>
@@ -143,7 +143,7 @@ export default function AnalyzePage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Heading Structure Comparison</CardTitle>
+                <CardTitle>Başlık Yapısı Karşılaştırması</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
