@@ -9,7 +9,7 @@ Professional SEO content generation studio powered by AI (Groq Llama 3.3 70B)
 - **Competitor Analysis**: Analyze competitor content structure and keywords
 - **Modern UI**: Clean, minimal design inspired by Apify
 - **Türkçe Support**: Full Turkish language support for content generation
-- **Database**: SQLite for content storage and management
+- **Database**: JSON file-based storage (no native dependencies)
 
 ## 🚀 Quick Start
 
@@ -20,10 +20,11 @@ npm install
 # Run development server
 npm run dev
 
-# Build for production
-npm run build
-npm start
+# Open browser
+# http://localhost:3000
 ```
+
+**✅ Windows Compatible**: No need for Visual Studio Build Tools!
 
 ## 📦 Tech Stack
 
@@ -32,7 +33,7 @@ npm start
 - **Styling**: Tailwind CSS
 - **Font**: Inter (Google Fonts)
 - **AI**: Groq API (Llama 3.3 70B Versatile)
-- **Database**: SQLite (better-sqlite3)
+- **Database**: JSON file-based (data/seo-studio.json)
 - **Icons**: Lucide React
 
 ## 🔑 Environment Variables
@@ -64,10 +65,15 @@ src/
 │   └── content/        # Content-related components
 ├── lib/
 │   ├── ai/             # Groq AI integration
-│   ├── db/             # SQLite database
+│   ├── db/             # JSON file-based database
 │   ├── seo/            # SEO utilities
 │   └── utils/          # Helper functions
 └── types/              # TypeScript type definitions
+```
+
+## 💾 Database
+
+Content is stored in `data/seo-studio.json`. The file is automatically created on first run.
 ```
 
 ## 🎯 Main Features
