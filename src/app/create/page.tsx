@@ -10,7 +10,7 @@ import Textarea from '@/components/ui/Textarea';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import SEOScoreCard from '@/components/seo/SEOScoreCard';
-import { Copy, Save, Rocket } from 'lucide-react';
+import { Copy, Save, Rocket, Eye } from 'lucide-react';
 import { slugify } from '@/lib/utils/slug';
 import { readingTime } from '@/lib/utils/format';
 
@@ -112,6 +112,16 @@ export default function CreatePage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handlePreview() {
+    if (!generatedContent) return;
+
+    // Save to localStorage
+    localStorage.setItem('preview_content', JSON.stringify(generatedContent));
+
+    // Open in new tab
+    window.open('/preview', '_blank');
   }
 
   function copyToClipboard(text: string) {
@@ -234,6 +244,14 @@ export default function CreatePage() {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Oluşturulan İçerik</h3>
                     <div className="flex space-x-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handlePreview}
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        Önizle
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
