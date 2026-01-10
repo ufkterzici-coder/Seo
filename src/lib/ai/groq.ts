@@ -33,8 +33,9 @@ export async function generateWithGroq(
         { role: 'user', content: prompt },
       ],
       model,
-      temperature: 0.7,
+      temperature: 0.3, // Lower temperature for more consistent JSON output
       max_tokens: 8000,
+      response_format: { type: 'json_object' }, // Force JSON response
     });
 
     return completion.choices[0]?.message?.content || '';

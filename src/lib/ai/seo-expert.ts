@@ -2,33 +2,54 @@ import { generateWithGroq } from './groq';
 import { SEO_EXPERT_SYSTEM_PROMPT } from './prompts';
 import { GenerateContentRequest, GenerateContentResponse } from '@/types/api';
 
+function cleanJSON(text: string): string {
+  // Remove BOM and invisible characters
+  let cleaned = text.replace(/^\uFEFF/, ''); // Remove BOM
+  cleaned = cleaned.replace(/[\u0000-\u001F\u007F-\u009F]/g, ''); // Remove control characters
+  
+  // Normalize line endings
+  cleaned = cleaned.replace(/\r\n/g, '\n');
+  cleaned = cleaned.replace(/\r/g, '\n');
+  
+  // Trim whitespace
+  cleaned = cleaned.trim();
+  
+  return cleaned;
+}
+
 function extractJSON(text: string): any {
-  // Try 1: Look for JSON in code blocks
-  const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+  const cleaned = cleanJSON(text);
+  
+  // Try 1: Parse entire cleaned text
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.log('Failed to parse cleaned text directly');
+  }
+
+  // Try 2: Look for JSON in code blocks
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
   if (codeBlockMatch) {
     try {
-      return JSON.parse(codeBlockMatch[1]);
+      const json = cleanJSON(codeBlockMatch[1]);
+      return JSON.parse(json);
     } catch (e) {
       console.log('Failed to parse JSON from code block');
     }
   }
 
-  // Try 2: Look for JSON between curly braces
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
+  // Try 3: Find first { and last } and extract everything between
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
     try {
-      return JSON.parse(jsonMatch[0]);
+      const jsonStr = cleaned.substring(firstBrace, lastBrace + 1);
+      return JSON.parse(jsonStr);
     } catch (e) {
-      console.log('Failed to parse JSON from curly braces');
+      console.log('Failed to parse JSON between braces:', e);
+      console.log('Attempted JSON (first 200 chars):', jsonStr.substring(0, 200));
     }
-  }
-
-  // Try 3: Clean and try entire text
-  try {
-    const cleaned = text.trim();
-    return JSON.parse(cleaned);
-  } catch (e) {
-    console.log('Failed to parse entire text as JSON');
   }
 
   return null;
@@ -56,7 +77,12 @@ ${request.additionalInstructions ? `
 **Ek Talimatlar**: ${request.additionalInstructions}
 ` : ''}
 
-ÇOK ÖNEMLİ: Yanıtında SADECE JSON formatında veri döndür. Hiçbir açıklama, yorum veya ek metin ekleme. Direkt JSON ile başla ve JSON ile bitir.
+ÇOK ÖNEMLİ: 
+1. Yanıtında SADECE geçerli JSON formatında veri döndür
+2. Hiçbir açıklama, yorum veya ek metin ekleme
+3. TÜRKÇE karakterler kullan, başka dil karakterleri kullanma
+4. İngilizce kelimeler yerine Türkçe kullan (örn: "necessary" yerine "zorunlu")
+5. Direkt { ile başla ve } ile bitir
 `;
 
   console.log('=== Generating content with Groq ===');
@@ -64,14 +90,17 @@ ${request.additionalInstructions ? `
 
   const response = await generateWithGroq(userPrompt, SEO_EXPERT_SYSTEM_PROMPT);
 
-  console.log('=== Raw Groq Response (first 500 chars) ===');
-  console.log(response.substring(0, 500));
+  console.log('=== Raw Groq Response ===');
+  console.log('Length:', response.length);
+  console.log('First 300 chars:', response.substring(0, 300));
+  console.log('Last 100 chars:', response.substring(response.length - 100));
 
   const parsed = extractJSON(response);
 
   if (!parsed) {
     console.error('=== Failed to extract JSON ===');
-    console.error('Full response:', response);
+    console.error('Response length:', response.length);
+    console.error('First 1000 chars:', response.substring(0, 1000));
     throw new Error('AI response did not contain valid JSON. Please try again.');
   }
 
@@ -79,11 +108,50 @@ ${request.additionalInstructions ? `
   console.log('Keys:', Object.keys(parsed));
 
   // Validate required fields
-  if (!parsed.meta || !parsed.seo || !parsed.content || !parsed.fullMarkdown) {
+  if (!parsed.meta || !parsed.seo || !parsed.content) {
     console.error('=== Missing required fields ===');
-    console.error('Parsed:', parsed);
-    throw new Error('AI response missing required fields');
+    console.error('Available keys:', Object.keys(parsed));
+    throw new Error('AI response missing required fields (meta, seo, content)');
+  }
+
+  // Ensure fullMarkdown exists
+  if (!parsed.fullMarkdown) {
+    console.log('Warning: fullMarkdown missing, will generate from content');
+    parsed.fullMarkdown = generateMarkdownFromContent(parsed);
   }
 
   return parsed as GenerateContentResponse;
+}
+
+function generateMarkdownFromContent(data: any): string {
+  let markdown = `# ${data.structure?.h1 || 'Untitled'}\n\n`;
+  
+  if (data.content?.introduction) {
+    markdown += `${data.content.introduction}\n\n`;
+  }
+  
+  if (data.content?.sections) {
+    data.content.sections.forEach((section: any) => {
+      markdown += `## ${section.heading}\n\n${section.content}\n\n`;
+      
+      if (section.subsections) {
+        section.subsections.forEach((sub: any) => {
+          markdown += `### ${sub.heading}\n\n${sub.content}\n\n`;
+        });
+      }
+    });
+  }
+  
+  if (data.content?.faq && data.content.faq.length > 0) {
+    markdown += `## Sıkça Sorulan Sorular\n\n`;
+    data.content.faq.forEach((faq: any) => {
+      markdown += `### ${faq.question}\n\n${faq.answer}\n\n`;
+    });
+  }
+  
+  if (data.content?.conclusion) {
+    markdown += `## Sonuç\n\n${data.content.conclusion}\n`;
+  }
+  
+  return markdown;
 }
