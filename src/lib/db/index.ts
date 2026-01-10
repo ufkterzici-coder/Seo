@@ -1,45 +1,57 @@
-import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import {
-  CREATE_CONTENTS_TABLE,
-  CREATE_TEMPLATES_TABLE,
-  CREATE_ANALYTICS_TABLE,
-  CREATE_INDEXES,
-} from './schema';
 
-const DB_PATH = path.join(process.cwd(), 'data', 'seo-studio.db');
+const dataDir = path.join(process.cwd(), 'data');
+const dbPath = path.join(dataDir, 'seo-studio.json');
 
-// Ensure data directory exists
-const dataDir = path.dirname(DB_PATH);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+interface Database {
+  contents: any[];
+  templates: any[];
 }
 
-let db: Database.Database | null = null;
+let dbCache: Database | null = null;
 
-export function getDb(): Database.Database {
-  if (db) return db;
-
-  db = new Database(DB_PATH);
-  db.pragma('journal_mode = WAL');
-
-  // Initialize tables
-  db.exec(CREATE_CONTENTS_TABLE);
-  db.exec(CREATE_TEMPLATES_TABLE);
-  db.exec(CREATE_ANALYTICS_TABLE);
-
-  // Create indexes
-  CREATE_INDEXES.forEach((indexQuery) => {
-    db!.exec(indexQuery);
-  });
-
-  return db;
-}
-
-export function closeDb() {
-  if (db) {
-    db.close();
-    db = null;
+function ensureDataDir() {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
   }
+}
+
+function loadDb(): Database {
+  ensureDataDir();
+
+  if (!fs.existsSync(dbPath)) {
+    const initialDb: Database = {
+      contents: [],
+      templates: [],
+    };
+    fs.writeFileSync(dbPath, JSON.stringify(initialDb, null, 2));
+    return initialDb;
+  }
+
+  const data = fs.readFileSync(dbPath, 'utf-8');
+  return JSON.parse(data);
+}
+
+function saveDb(db: Database) {
+  ensureDataDir();
+  fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+  dbCache = db;
+}
+
+export function getDb(): Database {
+  if (!dbCache) {
+    dbCache = loadDb();
+  }
+  return dbCache;
+}
+
+export function updateDb(updater: (db: Database) => void) {
+  const db = getDb();
+  updater(db);
+  saveDb(db);
+}
+
+export function closeDb(): void {
+  dbCache = null;
 }
