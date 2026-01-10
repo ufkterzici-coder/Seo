@@ -1,8 +1,23 @@
 import Groq from 'groq-sdk';
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+let groqInstance: Groq | null = null;
+
+function getGroqClient(): Groq {
+  if (!groqInstance) {
+    const apiKey = process.env.GROQ_API_KEY;
+
+    if (!apiKey) {
+      console.error('GROQ_API_KEY not found in environment variables');
+      console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('GROQ')));
+      throw new Error('GROQ_API_KEY environment variable is required');
+    }
+
+    console.log('Initializing Groq client with API key:', apiKey.substring(0, 10) + '...');
+    groqInstance = new Groq({ apiKey });
+  }
+
+  return groqInstance;
+}
 
 export async function generateWithGroq(
   prompt: string,
@@ -10,6 +25,8 @@ export async function generateWithGroq(
   model: string = 'llama-3.3-70b-versatile'
 ): Promise<string> {
   try {
+    const groq = getGroqClient();
+
     const completion = await groq.chat.completions.create({
       messages: [
         { role: 'system', content: systemPrompt },
@@ -27,4 +44,4 @@ export async function generateWithGroq(
   }
 }
 
-export default groq;
+export default getGroqClient;
