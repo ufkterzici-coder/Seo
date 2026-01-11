@@ -10,6 +10,7 @@ import Textarea from '@/components/ui/Textarea';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import SEOScoreCard from '@/components/seo/SEOScoreCard';
+import KeywordSelector from '@/components/content/KeywordSelector';
 import { Copy, Save, Rocket, Eye } from 'lucide-react';
 import { slugify } from '@/lib/utils/slug';
 import { readingTime } from '@/lib/utils/format';
@@ -29,6 +30,7 @@ export default function CreatePage() {
     additionalInstructions: '',
   });
 
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [generatedContent, setGeneratedContent] = useState<any>(null);
   const [error, setError] = useState('');
 
@@ -47,6 +49,7 @@ export default function CreatePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          secondaryKeywords: selectedKeywords, // Add selected keywords
           competitorUrls: formData.competitorUrls
             .split('\n')
             .map(url => url.trim())
@@ -116,11 +119,7 @@ export default function CreatePage() {
 
   function handlePreview() {
     if (!generatedContent) return;
-
-    // Save to localStorage
     localStorage.setItem('preview_content', JSON.stringify(generatedContent));
-
-    // Open in new tab
     window.open('/preview', '_blank');
   }
 
@@ -154,6 +153,14 @@ export default function CreatePage() {
                   placeholder="kablosuz kulaklık"
                   value={formData.mainKeyword}
                   onChange={(e) => setFormData({ ...formData, mainKeyword: e.target.value })}
+                />
+
+                {/* Keyword Selector */}
+                <KeywordSelector
+                  topic={formData.topic}
+                  mainKeyword={formData.mainKeyword}
+                  selectedKeywords={selectedKeywords}
+                  onKeywordsChange={setSelectedKeywords}
                 />
 
                 <div className="grid grid-cols-2 gap-4">
