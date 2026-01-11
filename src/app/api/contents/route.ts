@@ -13,8 +13,15 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
+    const id = searchParams.get('id');
+
+    console.log('=== GET Contents API ===');
+    console.log('Status filter:', status);
+    console.log('ID:', id);
 
     const contents = getAllContents(status || undefined);
+    console.log('Contents found:', contents.length);
+
     return NextResponse.json(contents);
   } catch (error) {
     console.error('GET Contents Error:', error);
@@ -29,6 +36,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    console.log('=== POST Content API ===');
+    console.log('Creating content:', body.title);
+
     // Generate slug if not provided
     if (!body.slug && body.title) {
       body.slug = slugify(body.title);
@@ -40,6 +50,8 @@ export async function POST(request: NextRequest) {
     }
 
     const content = createContent(body);
+    console.log('Content created with ID:', content.id);
+
     return NextResponse.json(content);
   } catch (error) {
     console.error('POST Content Error:', error);
@@ -54,6 +66,9 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     const { id, ...data } = body;
+
+    console.log('=== PUT Content API ===');
+    console.log('Updating content ID:', id);
 
     if (!id) {
       return NextResponse.json(
@@ -73,6 +88,8 @@ export async function PUT(request: NextRequest) {
     }
 
     const content = updateContent(id, data);
+    console.log('Content updated:', content?.id);
+
     return NextResponse.json(content);
   } catch (error) {
     console.error('PUT Content Error:', error);
@@ -88,6 +105,9 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
+    console.log('=== DELETE Content API ===');
+    console.log('Deleting content ID:', id);
+
     if (!id) {
       return NextResponse.json(
         { error: 'Content ID is required' },
@@ -96,6 +116,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     const success = deleteContent(id);
+    console.log('Content deleted:', success);
+
     return NextResponse.json({ success });
   } catch (error) {
     console.error('DELETE Content Error:', error);
