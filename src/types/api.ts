@@ -8,6 +8,8 @@ export interface GenerateContentRequest {
   contentType: string;
   tone: string;
   intent?: string;
+  aiProvider?: string;
+  secondaryKeywords?: string[];
   competitorUrls?: string[];
   additionalInstructions?: string;
 }

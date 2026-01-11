@@ -26,6 +26,7 @@ export default function CreatePage() {
     contentType: 'article',
     tone: 'expert',
     intent: 'auto',
+    aiProvider: 'groq',
     competitorUrls: '',
     additionalInstructions: '',
   });
@@ -49,6 +50,7 @@ export default function CreatePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          aiProvider: formData.aiProvider, // Pass AI provider selection
           secondaryKeywords: selectedKeywords, // Add selected keywords
           competitorUrls: formData.competitorUrls
             .split('\n')
@@ -161,6 +163,17 @@ export default function CreatePage() {
                   mainKeyword={formData.mainKeyword}
                   selectedKeywords={selectedKeywords}
                   onKeywordsChange={setSelectedKeywords}
+                />
+
+                {/* AI Provider Selector */}
+                <Select
+                  label="Yapay Zeka Sağlayıcı"
+                  value={formData.aiProvider}
+                  onChange={(e) => setFormData({ ...formData, aiProvider: e.target.value })}
+                  options={[
+                    { value: 'groq', label: 'Groq (Llama 3.3 70B)' },
+                    { value: 'claude', label: 'Claude (Sonnet 3.5)' },
+                  ]}
                 />
 
                 <div className="grid grid-cols-2 gap-4">

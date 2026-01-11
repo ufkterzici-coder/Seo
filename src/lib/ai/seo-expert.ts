@@ -1,33 +1,26 @@
 import { generateWithGroq } from './groq';
+import { generateWithClaude } from './claude';
 import { SEO_EXPERT_SYSTEM_PROMPT } from './prompts';
 import { GenerateContentRequest, GenerateContentResponse } from '@/types/api';
 
 function cleanJSON(text: string): string {
-  // Remove BOM and invisible characters
-  let cleaned = text.replace(/^\uFEFF/, ''); // Remove BOM
-  cleaned = cleaned.replace(/[\u0000-\u001F\u007F-\u009F]/g, ''); // Remove control characters
-  
-  // Normalize line endings
+  let cleaned = text.replace(/^\uFEFF/, '');
+  cleaned = cleaned.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
   cleaned = cleaned.replace(/\r\n/g, '\n');
   cleaned = cleaned.replace(/\r/g, '\n');
-  
-  // Trim whitespace
   cleaned = cleaned.trim();
-  
   return cleaned;
 }
 
 function extractJSON(text: string): any {
   const cleaned = cleanJSON(text);
   
-  // Try 1: Parse entire cleaned text
   try {
     return JSON.parse(cleaned);
   } catch (e) {
     console.log('Failed to parse cleaned text directly');
   }
 
-  // Try 2: Look for JSON in code blocks
   const codeBlockMatch = cleaned.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
   if (codeBlockMatch) {
     try {
@@ -38,7 +31,6 @@ function extractJSON(text: string): any {
     }
   }
 
-  // Try 3: Find first { and last } and extract everything between
   const firstBrace = cleaned.indexOf('{');
   const lastBrace = cleaned.lastIndexOf('}');
   
@@ -48,7 +40,6 @@ function extractJSON(text: string): any {
       return JSON.parse(jsonStr);
     } catch (e) {
       console.log('Failed to parse JSON between braces:', e);
-      console.log('Attempted JSON (first 200 chars):', jsonStr.substring(0, 200));
     }
   }
 
@@ -63,10 +54,15 @@ export async function generateSEOContent(
 
 **Konu**: ${request.topic}
 **Ana Anahtar Kelime**: ${request.mainKeyword}
-**Kelime Sayısı**: ${request.wordCount}
+**Hedef Kelime Sayısı**: ${request.wordCount} kelime (ÇOK ÖNEMLİ: Bu sayıyı mutlaka karşılayın!)
 **İçerik Tipi**: ${request.contentType}
 **Ton**: ${request.tone}
 ${request.intent ? `**Arama Niyeti**: ${request.intent}` : ''}
+
+${request.secondaryKeywords && request.secondaryKeywords.length > 0 ? `
+**İkincil Anahtar Kelimeler**: ${request.secondaryKeywords.join(', ')}
+(Bu kelimeleri içerikte doğal şekilde kullan)
+` : ''}
 
 ${request.competitorUrls && request.competitorUrls.length > 0 ? `
 **Rakip URL'ler**:
@@ -77,47 +73,67 @@ ${request.additionalInstructions ? `
 **Ek Talimatlar**: ${request.additionalInstructions}
 ` : ''}
 
-ÇOK ÖNEMLİ: 
+KRİTİK KURALLAR:
 1. Yanıtında SADECE geçerli JSON formatında veri döndür
 2. Hiçbir açıklama, yorum veya ek metin ekleme
 3. TÜRKÇE karakterler kullan, başka dil karakterleri kullanma
-4. İngilizce kelimeler yerine Türkçe kullan (örn: "necessary" yerine "zorunlu")
+4. İngilizce kelimeler yerine Türkçe kullan
 5. Direkt { ile başla ve } ile bitir
+6. İçerik MUTLAKA ${request.wordCount} kelime veya daha uzun olmalı
+7. Her section en az 200-300 kelime içermeli
+8. Detaylı, kapsamlı ve bilgilendirici yaz
+9. Örnekler, açıklamalar ve detaylar ekle
+10. Kısa cümlelerle geçiştirme, her konuyu derinlemesine işle
 `;
 
-  console.log('=== Generating content with Groq ===');
-  console.log('Request:', { topic: request.topic, keyword: request.mainKeyword });
+  console.log('=== Generating content with AI ===');
+  console.log('Provider:', request.aiProvider || 'groq');
+  console.log('Topic:', request.topic);
+  console.log('Target word count:', request.wordCount);
 
-  const response = await generateWithGroq(userPrompt, SEO_EXPERT_SYSTEM_PROMPT);
+  let response: string;
 
-  console.log('=== Raw Groq Response ===');
+  try {
+    if (request.aiProvider === 'claude') {
+      response = await generateWithClaude(userPrompt, SEO_EXPERT_SYSTEM_PROMPT, 'claude-3-5-sonnet-20241022');
+    } else {
+      response = await generateWithGroq(userPrompt, SEO_EXPERT_SYSTEM_PROMPT, 'llama-3.3-70b-versatile');
+    }
+  } catch (error: any) {
+    console.error('AI Provider Error:', error);
+    throw new Error(`Failed to generate content: ${error.message}`);
+  }
+
+  console.log('=== Raw AI Response ===');
   console.log('Length:', response.length);
   console.log('First 300 chars:', response.substring(0, 300));
-  console.log('Last 100 chars:', response.substring(response.length - 100));
 
   const parsed = extractJSON(response);
 
   if (!parsed) {
     console.error('=== Failed to extract JSON ===');
-    console.error('Response length:', response.length);
-    console.error('First 1000 chars:', response.substring(0, 1000));
     throw new Error('AI response did not contain valid JSON. Please try again.');
   }
 
   console.log('=== Successfully parsed JSON ===');
   console.log('Keys:', Object.keys(parsed));
 
-  // Validate required fields
   if (!parsed.meta || !parsed.seo || !parsed.content) {
     console.error('=== Missing required fields ===');
-    console.error('Available keys:', Object.keys(parsed));
     throw new Error('AI response missing required fields (meta, seo, content)');
   }
 
-  // Ensure fullMarkdown exists
   if (!parsed.fullMarkdown) {
-    console.log('Warning: fullMarkdown missing, will generate from content');
+    console.log('Warning: fullMarkdown missing, generating from content');
     parsed.fullMarkdown = generateMarkdownFromContent(parsed);
+  }
+
+  // Log actual word count
+  const actualWordCount = parsed.fullMarkdown.split(/\s+/).filter(Boolean).length;
+  console.log('Generated word count:', actualWordCount, '/ Target:', request.wordCount);
+
+  if (actualWordCount < request.wordCount * 0.7) {
+    console.warn('WARNING: Generated content is significantly shorter than requested!');
   }
 
   return parsed as GenerateContentResponse;
