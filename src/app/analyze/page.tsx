@@ -5,20 +5,44 @@ import Navbar from '@/components/layout/Navbar';
 import Container from '@/components/layout/Container';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
-import { Search } from 'lucide-react';
+import Select from '@/components/ui/Select';
+import { Search, CheckCircle, XCircle, AlertCircle, TrendingUp } from 'lucide-react';
+import type { FullCompetitorAnalysisResult } from '@/types/competitor';
 
 export default function AnalyzePage() {
+  // Stage 1 - Input
+  const [stage, setStage] = useState<1 | 2 | 3>(1);
+  const [topic, setTopic] = useState('');
+  const [mainKeyword, setMainKeyword] = useState('');
+  const [wordCount, setWordCount] = useState(1500);
+  const [contentType, setContentType] = useState('Blog Yazısı');
+  const [tone, setTone] = useState('Profesyonel');
+  const [purpose, setPurpose] = useState('Bilgilendirme');
+
+  // Stage 2 - URLs
   const [urls, setUrls] = useState('');
+
+  // Analysis state
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<any>(null);
+  const [results, setResults] = useState<FullCompetitorAnalysisResult | null>(null);
   const [error, setError] = useState('');
 
-  async function handleAnalyze() {
+  async function handleStage1Next() {
+    if (!topic || !mainKeyword) {
+      setError('Konu ve ana anahtar kelime zorunludur');
+      return;
+    }
+    setError('');
+    setStage(2);
+  }
+
+  async function handleStartAnalysis() {
     const urlList = urls.split('\n').map(u => u.trim()).filter(Boolean);
 
     if (urlList.length === 0) {
-      setError('Lütfen en az bir URL girin');
+      setError('Lütfen en az bir rakip URL girin');
       return;
     }
 
@@ -29,26 +53,45 @@ export default function AnalyzePage() {
 
     setLoading(true);
     setError('');
+    setStage(3);
 
     try {
-      const response = await fetch('/api/analyze', {
+      const response = await fetch('/api/analyze/full', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: urlList }),
+        body: JSON.stringify({
+          topic,
+          mainKeyword,
+          wordCount,
+          contentType,
+          tone,
+          purpose,
+          urls: urlList,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to analyze');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Analysis failed');
       }
 
       const data = await response.json();
       setResults(data);
     } catch (err) {
-      setError('Rakip analizi yapılamadı. Lütfen tekrar deneyin.');
+      setError(err instanceof Error ? err.message : 'Analiz başarısız oldu');
       console.error(err);
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleReset() {
+    setStage(1);
+    setResults(null);
+    setError('');
+    setTopic('');
+    setMainKeyword('');
+    setUrls('');
   }
 
   return (
@@ -56,116 +99,455 @@ export default function AnalyzePage() {
       <Navbar />
       <Container>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Rakip Analizi</h1>
-          <p className="text-gray-600">Rakip içeriklerini analiz edin ve SEO stratejinizi geliştirin</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Profesyonel Rakip Analizi</h1>
+          <p className="text-gray-600">Rakip içeriklerini analiz edin ve AI destekli strateji önerileri alın</p>
         </div>
 
-        <Card className="mb-6">
-          <CardContent>
-            <Textarea
-              label="Analiz edilecek URL'leri girin (her satıra bir URL, maks. 5)"
-              rows={5}
-              placeholder="https://rakip1.com/makale&#10;https://rakip2.com/blog"
-              value={urls}
-              onChange={(e) => setUrls(e.target.value)}
-            />
+        {/* Progress Steps */}
+        <div className="mb-8 flex items-center justify-center">
+          <div className="flex items-center space-x-4">
+            <StepIndicator number={1} label="Konu & Strateji" active={stage >= 1} />
+            <div className="w-16 h-0.5 bg-gray-200"></div>
+            <StepIndicator number={2} label="Rakip URL'leri" active={stage >= 2} />
+            <div className="w-16 h-0.5 bg-gray-200"></div>
+            <StepIndicator number={3} label="Analiz & Strateji" active={stage >= 3} />
+          </div>
+        </div>
 
-            {error && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {error}
+        {/* Stage 1: Input Form */}
+        {stage === 1 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>🟢 AŞAMA 1 – KONU & STRATEJİ TANIMI</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Input
+                  label="Ana Konu *"
+                  placeholder="Örn: SEO İçerik Yazımı"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                />
+
+                <Input
+                  label="Ana Anahtar Kelime (Primary Keyword) *"
+                  placeholder="Örn: seo içerik yazımı"
+                  value={mainKeyword}
+                  onChange={(e) => setMainKeyword(e.target.value)}
+                />
+
+                <Input
+                  label="Hedef Kelime Sayısı"
+                  type="number"
+                  value={wordCount}
+                  onChange={(e) => setWordCount(Number(e.target.value))}
+                />
+
+                <Select
+                  label="İçerik Tipi"
+                  value={contentType}
+                  onChange={(e) => setContentType(e.target.value)}
+                  options={[
+                    { value: 'Blog Yazısı', label: 'Blog Yazısı' },
+                    { value: 'Rehber', label: 'Rehber' },
+                    { value: 'Liste', label: 'Liste' },
+                    { value: 'Karşılaştırma', label: 'Karşılaştırma' },
+                    { value: 'How-To', label: 'How-To (Nasıl Yapılır)' },
+                    { value: 'Landing Page', label: 'Landing Page' },
+                  ]}
+                />
+
+                <Select
+                  label="Ton"
+                  value={tone}
+                  onChange={(e) => setTone(e.target.value)}
+                  options={[
+                    { value: 'Profesyonel', label: 'Profesyonel' },
+                    { value: 'Samimi', label: 'Samimi' },
+                    { value: 'Otoriter', label: 'Otoriter' },
+                    { value: 'Satış Odaklı', label: 'Satış Odaklı' },
+                    { value: 'Eğitici', label: 'Eğitici' },
+                  ]}
+                />
+
+                <Select
+                  label="Amaç"
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
+                  options={[
+                    { value: 'Bilgilendirme', label: 'Bilgilendirme' },
+                    { value: 'Satış', label: 'Satış' },
+                    { value: 'Lead', label: 'Lead Toplama' },
+                    { value: 'Marka Bilinirliği', label: 'Marka Bilinirliği' },
+                    { value: 'SEO Trafik', label: 'SEO Trafik' },
+                  ]}
+                />
+
+                {error && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                    {error}
+                  </div>
+                )}
+
+                <div className="flex justify-end">
+                  <Button onClick={handleStage1Next}>
+                    Devam Et
+                  </Button>
+                </div>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Stage 2: URL Input */}
+        {stage === 2 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>🟢 AŞAMA 2 – RAKİP URL EKLEME</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2">Konu: {topic}</h4>
+                  <p className="text-sm text-blue-700">Ana Kelime: {mainKeyword}</p>
+                  <p className="text-sm text-blue-700">Tip: {contentType} | Ton: {tone}</p>
+                </div>
+
+                <Textarea
+                  label="Rakip URL'leri (her satıra bir URL, maks. 5)"
+                  rows={6}
+                  placeholder="https://rakip1.com/makale&#10;https://rakip2.com/blog&#10;https://rakip3.com/rehber"
+                  value={urls}
+                  onChange={(e) => setUrls(e.target.value)}
+                />
+
+                {error && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                    {error}
+                  </div>
+                )}
+
+                <div className="flex justify-between">
+                  <Button onClick={() => setStage(1)} variant="outline">
+                    Geri
+                  </Button>
+                  <Button onClick={handleStartAnalysis} loading={loading}>
+                    <Search className="w-4 h-4 mr-2" />
+                    Analizi Başlat
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Stage 3: Analysis Results */}
+        {stage === 3 && (
+          <div className="space-y-6">
+            {loading && (
+              <Card>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
+                    <p className="text-gray-600">Rakipler analiz ediliyor...</p>
+                    <p className="text-sm text-gray-500 mt-2">Bu işlem 1-3 dakika sürebilir</p>
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
-            <div className="mt-4 flex justify-end">
-              <Button onClick={handleAnalyze} loading={loading} disabled={loading}>
-                <Search className="w-4 h-4 mr-2" />
-                Analiz Et
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            {error && !results && (
+              <Card>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                    <p className="text-red-700 font-semibold">{error}</p>
+                    <Button onClick={handleReset} className="mt-4">
+                      Baştan Başla
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-        {results && (
-          <>
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Analiz Sonuçları</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">URL</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Kelime</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Başlık</th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-700">Görsel</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {results.competitors.map((comp: any, idx: number) => (
-                        <tr key={idx} className="border-b border-gray-100">
-                          <td className="py-3 px-4 text-gray-900">{new URL(comp.url).hostname}</td>
-                          <td className="py-3 px-4 text-gray-900">{comp.wordCount.toLocaleString()}</td>
-                          <td className="py-3 px-4 text-gray-900">{comp.headingCount}</td>
-                          <td className="py-3 px-4 text-gray-900">{comp.imageCount}</td>
-                        </tr>
+            {results && (
+              <>
+                {/* Stage 2 Results: Scraping Status */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>📊 AŞAMA 2 – SCRAPING SONUÇLARI</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {results.stage2_scraping.scrapeStatus.map((status, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <span className="text-sm text-gray-700 truncate flex-1">{status.url}</span>
+                          <div className="flex items-center ml-4">
+                            {status.status === 'success' && (
+                              <div className="flex items-center text-green-600">
+                                <CheckCircle className="w-5 h-5 mr-1" />
+                                <span className="text-sm font-medium">Başarılı</span>
+                              </div>
+                            )}
+                            {status.status === 'error' && (
+                              <div className="flex items-center text-red-600">
+                                <XCircle className="w-5 h-5 mr-1" />
+                                <span className="text-sm font-medium">Hata</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       ))}
-                      <tr className="bg-gray-50 font-semibold">
-                        <td className="py-3 px-4 text-gray-900">Ortalama</td>
-                        <td className="py-3 px-4 text-gray-900">{results.averageStats.wordCount.toLocaleString()}</td>
-                        <td className="py-3 px-4 text-gray-900">{results.averageStats.headingCount}</td>
-                        <td className="py-3 px-4 text-gray-900">{results.averageStats.imageCount}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Ortak Anahtar Kelimeler</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {results.commonKeywords.map((keyword: string, idx: number) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1 bg-gray-100 text-gray-900 rounded-full text-sm font-medium"
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Başlık Yapısı Karşılaştırması</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {results.competitors.map((comp: any, idx: number) => (
-                    <div key={idx}>
-                      <h4 className="font-semibold text-gray-900 mb-2">{new URL(comp.url).hostname}</h4>
-                      <div className="text-sm space-y-1">
-                        {comp.headings.h1.map((h1: string, h1Idx: number) => (
-                          <div key={h1Idx} className="text-gray-900 font-medium">H1: {h1}</div>
-                        ))}
-                        {comp.headings.h2.map((h2: string, h2Idx: number) => (
-                          <div key={h2Idx} className="ml-4 text-gray-700">├─ H2: {h2}</div>
-                        ))}
+                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-900">
+                          ✅ {results.stage2_scraping.successCount} başarılı |
+                          ❌ {results.stage2_scraping.errorCount} hata
+                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </>
+                  </CardContent>
+                </Card>
+
+                {/* Stage 4: Aggregate Analysis */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>📈 AŞAMA 4 – TOPLAM ANALİZ (AGGREGATE)</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <StatCard
+                        label="Ortalama Kelime Sayısı"
+                        value={results.stage4_aggregateAnalysis.averageWordCount.toLocaleString()}
+                      />
+                      <StatCard
+                        label="Ortalama H2 Sayısı"
+                        value={results.stage4_aggregateAnalysis.averageH2Count}
+                      />
+                      <StatCard
+                        label="Ortalama H3 Sayısı"
+                        value={results.stage4_aggregateAnalysis.averageH3Count}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <h4 className="font-semibold text-green-900 mb-2">En Uzun Rakip</h4>
+                        <p className="text-sm text-green-700 truncate">
+                          {new URL(results.stage4_aggregateAnalysis.longestCompetitor.url).hostname}
+                        </p>
+                        <p className="text-2xl font-bold text-green-900 mt-2">
+                          {results.stage4_aggregateAnalysis.longestCompetitor.wordCount.toLocaleString()} kelime
+                        </p>
+                      </div>
+                      <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                        <h4 className="font-semibold text-orange-900 mb-2">En Kısa Rakip</h4>
+                        <p className="text-sm text-orange-700 truncate">
+                          {new URL(results.stage4_aggregateAnalysis.shortestCompetitor.url).hostname}
+                        </p>
+                        <p className="text-2xl font-bold text-orange-900 mt-2">
+                          {results.stage4_aggregateAnalysis.shortestCompetitor.wordCount.toLocaleString()} kelime
+                        </p>
+                      </div>
+                    </div>
+
+                    {results.stage4_aggregateAnalysis.commonH2Headings.length > 0 && (
+                      <div className="mt-6">
+                        <h4 className="font-semibold text-gray-900 mb-3">Ortak H2 Başlıkları</h4>
+                        <div className="space-y-2">
+                          {results.stage4_aggregateAnalysis.commonH2Headings.slice(0, 10).map((heading, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                              <span className="text-sm text-gray-700">{heading.heading}</span>
+                              <span className="text-xs bg-black text-white px-2 py-1 rounded">
+                                {heading.frequency}x
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Stage 5: AI Strategy */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <TrendingUp className="w-5 h-5 mr-2" />
+                      🟢 AŞAMA 5 – AI STRATEJİ & ÖNERİLER
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      {/* 1. Content Length */}
+                      <StrategySection
+                        title="📊 1. İÇERİK UZUNLUĞU"
+                        items={[
+                          `Rakip ortalama: ${results.stage5_aiStrategy.contentLength.competitorAverage} kelime`,
+                          `Rakip maksimum: ${results.stage5_aiStrategy.contentLength.competitorMax} kelime`,
+                          `ÖNERİLEN: ${results.stage5_aiStrategy.contentLength.recommendedWordCount} kelime`,
+                          results.stage5_aiStrategy.contentLength.reasoning,
+                        ]}
+                      />
+
+                      {/* 2. Heading Structure */}
+                      <StrategySection
+                        title="🏗️ 2. BAŞLIK YAPISI"
+                        items={[
+                          `Rakip ortalama H2: ${results.stage5_aiStrategy.headingStructure.recommendedH2Count - 3}`,
+                          `ÖNERİLEN H2 Sayısı: ${results.stage5_aiStrategy.headingStructure.recommendedH2Count}`,
+                          `Her H2 altında ${results.stage5_aiStrategy.headingStructure.recommendedH3PerH2} H3`,
+                        ]}
+                        extraContent={
+                          results.stage5_aiStrategy.headingStructure.suggestedH2s.length > 0 && (
+                            <div className="mt-4">
+                              <h5 className="font-semibold text-sm mb-2">Önerilen Yeni H2'ler:</h5>
+                              <ul className="space-y-1">
+                                {results.stage5_aiStrategy.headingStructure.suggestedH2s.map((h2, idx) => (
+                                  <li key={idx} className="text-sm text-gray-700">• {h2}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )
+                        }
+                      />
+
+                      {/* 3. Keywords */}
+                      <StrategySection
+                        title="🔑 3. ANAHTAR KELİMELER"
+                        items={[
+                          `Toplam rakip keyword: ${results.stage5_aiStrategy.keywords.competitorKeywords.length}`,
+                          `Keyword gap: ${results.stage5_aiStrategy.keywords.keywordGap.length} yeni fırsat`,
+                        ]}
+                        extraContent={
+                          <div className="mt-4">
+                            <h5 className="font-semibold text-sm mb-2">Keyword Gap (Fırsat Kelimeleri):</h5>
+                            <div className="flex flex-wrap gap-2">
+                              {results.stage5_aiStrategy.keywords.keywordGap.slice(0, 10).map((kw, idx) => (
+                                <span key={idx} className="px-3 py-1 bg-yellow-100 text-yellow-900 rounded-full text-sm">
+                                  {kw}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        }
+                      />
+
+                      {/* 4. Meta */}
+                      <StrategySection
+                        title="📝 4. META BİLGİLERİ"
+                        items={[
+                          `Önerilen Title: ${results.stage5_aiStrategy.meta.suggestedTitle}`,
+                          `Önerilen Description: ${results.stage5_aiStrategy.meta.suggestedDescription}`,
+                        ]}
+                      />
+
+                      {/* 5. FAQ */}
+                      <StrategySection
+                        title="❓ 5. FAQ / SSS"
+                        items={[
+                          `Rakip FAQ sayısı: ${results.stage5_aiStrategy.faq.competitorQuestions.length}`,
+                          `Toplam öneri: ${results.stage5_aiStrategy.faq.totalQuestionCount} soru`,
+                        ]}
+                        extraContent={
+                          results.stage5_aiStrategy.faq.suggestedNewQuestions.length > 0 && (
+                            <div className="mt-4">
+                              <h5 className="font-semibold text-sm mb-2">Yeni Soru Önerileri:</h5>
+                              <ul className="space-y-1">
+                                {results.stage5_aiStrategy.faq.suggestedNewQuestions.map((q, idx) => (
+                                  <li key={idx} className="text-sm text-gray-700">• {q}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )
+                        }
+                      />
+
+                      {/* Critical Rules */}
+                      <div className="mt-8 p-6 bg-red-50 border-2 border-red-200 rounded-lg">
+                        <h3 className="font-bold text-red-900 mb-4 flex items-center">
+                          <AlertCircle className="w-5 h-5 mr-2" />
+                          ⚠️ KRİTİK KURALLAR
+                        </h3>
+                        <ul className="space-y-2">
+                          {results.stage5_aiStrategy.criticalRules.map((rule, idx) => (
+                            <li key={idx} className="text-sm text-red-800 flex items-start">
+                              <span className="mr-2">•</span>
+                              <span>{rule}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 flex justify-between">
+                      <Button onClick={handleReset} variant="outline">
+                        Yeni Analiz
+                      </Button>
+                      <Button onClick={() => {
+                        // TODO: Create page ile entegre et
+                        window.location.href = '/create';
+                      }}>
+                        İçerik Oluştur
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
         )}
       </Container>
     </>
+  );
+}
+
+function StepIndicator({ number, label, active }: { number: number; label: string; active: boolean }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div
+        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+          active ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'
+        }`}
+      >
+        {number}
+      </div>
+      <span className={`text-xs mt-2 ${active ? 'text-black font-medium' : 'text-gray-500'}`}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+      <p className="text-sm text-gray-600 mb-1">{label}</p>
+      <p className="text-2xl font-bold text-gray-900">{value}</p>
+    </div>
+  );
+}
+
+function StrategySection({
+  title,
+  items,
+  extraContent,
+}: {
+  title: string;
+  items: string[];
+  extraContent?: React.ReactNode;
+}) {
+  return (
+    <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+      <h3 className="font-bold text-gray-900 mb-3">{title}</h3>
+      <ul className="space-y-2">
+        {items.map((item, idx) => (
+          <li key={idx} className="text-sm text-gray-700 flex items-start">
+            <span className="mr-2">□</span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+      {extraContent}
+    </div>
   );
 }
