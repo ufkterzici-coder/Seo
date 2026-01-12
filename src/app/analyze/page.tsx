@@ -8,12 +8,14 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Select from '@/components/ui/Select';
-import { Search, CheckCircle, XCircle, AlertCircle, TrendingUp } from 'lucide-react';
+import { Search, CheckCircle, XCircle, AlertCircle, TrendingUp, Sparkles, Copy, Save } from 'lucide-react';
 import type { FullCompetitorAnalysisResult } from '@/types/competitor';
+import type { GenerateContentResponse } from '@/types/api';
+import { marked } from 'marked';
 
 export default function AnalyzePage() {
   // Stage 1 - Input
-  const [stage, setStage] = useState<1 | 2 | 3>(1);
+  const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
   const [topic, setTopic] = useState('');
   const [mainKeyword, setMainKeyword] = useState('');
   const [wordCount, setWordCount] = useState(1500);
@@ -28,6 +30,26 @@ export default function AnalyzePage() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<FullCompetitorAnalysisResult | null>(null);
   const [error, setError] = useState('');
+
+  // Stage 4 - Content generation
+  const [selectedStrategies, setSelectedStrategies] = useState<{
+    useRecommendedWordCount: boolean;
+    useRecommendedH2s: boolean;
+    useKeywordGap: boolean;
+    useSuggestedTitle: boolean;
+    useSuggestedFAQs: boolean;
+    useContentGaps: boolean;
+  }>({
+    useRecommendedWordCount: true,
+    useRecommendedH2s: true,
+    useKeywordGap: true,
+    useSuggestedTitle: true,
+    useSuggestedFAQs: true,
+    useContentGaps: true,
+  });
+
+  const [generatingContent, setGeneratingContent] = useState(false);
+  const [generatedContent, setGeneratedContent] = useState<GenerateContentResponse | null>(null);
 
   async function handleStage1Next() {
     if (!topic || !mainKeyword) {
@@ -85,9 +107,112 @@ export default function AnalyzePage() {
     }
   }
 
+  async function handleGenerateContent() {
+    if (!results) return;
+
+    setGeneratingContent(true);
+    setError('');
+
+    try {
+      // Build additional instructions based on selected strategies
+      const instructions: string[] = [];
+
+      if (selectedStrategies.useRecommendedH2s && results.stage5_aiStrategy.headingStructure.suggestedH2s.length > 0) {
+        instructions.push('Aşağıdaki H2 başlıklarını mutlaka kullan:');
+        instructions.push(results.stage5_aiStrategy.headingStructure.suggestedH2s.map(h => `- ${h}`).join('\n'));
+      }
+
+      if (selectedStrategies.useContentGaps && results.stage5_aiStrategy.contentGap.missedTopics.length > 0) {
+        instructions.push('\nRakiplerin atladığı bu konuları dahil et:');
+        instructions.push(results.stage5_aiStrategy.contentGap.missedTopics.map(t => `- ${t}`).join('\n'));
+      }
+
+      if (selectedStrategies.useSuggestedFAQs && results.stage5_aiStrategy.faq.suggestedNewQuestions.length > 0) {
+        instructions.push('\nBu soruları SSS bölümüne ekle:');
+        instructions.push(results.stage5_aiStrategy.faq.suggestedNewQuestions.map(q => `- ${q}`).join('\n'));
+      }
+
+      // Collect keywords
+      const keywords: string[] = [mainKeyword];
+      if (selectedStrategies.useKeywordGap) {
+        keywords.push(...results.stage5_aiStrategy.keywords.keywordGap.slice(0, 10));
+      }
+      keywords.push(...results.stage5_aiStrategy.keywords.recommendedKeywords.slice(0, 10));
+
+      const targetWordCount = selectedStrategies.useRecommendedWordCount
+        ? results.stage5_aiStrategy.contentLength.recommendedWordCount
+        : wordCount;
+
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic,
+          mainKeyword,
+          wordCount: targetWordCount,
+          contentType,
+          tone,
+          intent: results.stage1_input.searchIntent,
+          secondaryKeywords: keywords,
+          competitorUrls: urls.split('\n').map(u => u.trim()).filter(Boolean),
+          additionalInstructions: instructions.join('\n\n'),
+          aiProvider: 'groq',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('İçerik oluşturulamadı');
+      }
+
+      const content = await response.json();
+      setGeneratedContent(content);
+      setStage(4);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'İçerik oluşturulamadı');
+      console.error(err);
+    } finally {
+      setGeneratingContent(false);
+    }
+  }
+
+  function handleCopyContent() {
+    if (generatedContent?.fullMarkdown) {
+      navigator.clipboard.writeText(generatedContent.fullMarkdown);
+      alert('İçerik panoya kopyalandı!');
+    }
+  }
+
+  async function handleSaveContent() {
+    if (!generatedContent) return;
+
+    try {
+      const response = await fetch('/api/contents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: generatedContent.meta.title,
+          content: generatedContent.fullMarkdown,
+          seoScore: generatedContent.seoScore.overall,
+          wordCount: generatedContent.fullMarkdown.split(/\s+/).filter(Boolean).length,
+          keywords: [generatedContent.seo.primaryKeyword, ...generatedContent.seo.secondaryKeywords],
+        }),
+      });
+
+      if (response.ok) {
+        alert('İçerik başarıyla kaydedildi!');
+      } else {
+        throw new Error('Kaydetme başarısız');
+      }
+    } catch (err) {
+      alert('İçerik kaydedilemedi');
+      console.error(err);
+    }
+  }
+
   function handleReset() {
     setStage(1);
     setResults(null);
+    setGeneratedContent(null);
     setError('');
     setTopic('');
     setMainKeyword('');
@@ -100,7 +225,7 @@ export default function AnalyzePage() {
       <Container>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Profesyonel Rakip Analizi</h1>
-          <p className="text-gray-600">Rakip içeriklerini analiz edin ve AI destekli strateji önerileri alın</p>
+          <p className="text-gray-600">Rakip içeriklerini analiz edin, strateji belirleyin ve AI ile içerik oluşturun</p>
         </div>
 
         {/* Progress Steps */}
@@ -110,7 +235,9 @@ export default function AnalyzePage() {
             <div className="w-16 h-0.5 bg-gray-200"></div>
             <StepIndicator number={2} label="Rakip URL'leri" active={stage >= 2} />
             <div className="w-16 h-0.5 bg-gray-200"></div>
-            <StepIndicator number={3} label="Analiz & Strateji" active={stage >= 3} />
+            <StepIndicator number={3} label="Analiz Sonuçları" active={stage >= 3} />
+            <div className="w-16 h-0.5 bg-gray-200"></div>
+            <StepIndicator number={4} label="İçerik Oluştur" active={stage >= 4} />
           </div>
         </div>
 
@@ -137,10 +264,11 @@ export default function AnalyzePage() {
                 />
 
                 <Input
-                  label="Hedef Kelime Sayısı"
+                  label="Başlangıç Kelime Sayısı"
                   type="number"
                   value={wordCount}
                   onChange={(e) => setWordCount(Number(e.target.value))}
+                  helperText="Rakip analizinden sonra otomatik optimize edilecek"
                 />
 
                 <Select
@@ -241,7 +369,7 @@ export default function AnalyzePage() {
           </Card>
         )}
 
-        {/* Stage 3: Analysis Results */}
+        {/* Stage 3: Analysis Results & Strategy Selection */}
         {stage === 3 && (
           <div className="space-y-6">
             {loading && (
@@ -272,10 +400,10 @@ export default function AnalyzePage() {
 
             {results && (
               <>
-                {/* Stage 2 Results: Scraping Status */}
+                {/* Scraping Status */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>📊 AŞAMA 2 – SCRAPING SONUÇLARI</CardTitle>
+                    <CardTitle>📊 Scraping Sonuçları</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
@@ -308,185 +436,130 @@ export default function AnalyzePage() {
                   </CardContent>
                 </Card>
 
-                {/* Stage 4: Aggregate Analysis */}
+                {/* Aggregate Stats */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>📈 AŞAMA 4 – TOPLAM ANALİZ (AGGREGATE)</CardTitle>
+                    <CardTitle>📈 Rakip İstatistikleri</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <StatCard
-                        label="Ortalama Kelime Sayısı"
+                        label="Ortalama Kelime"
                         value={results.stage4_aggregateAnalysis.averageWordCount.toLocaleString()}
                       />
                       <StatCard
-                        label="Ortalama H2 Sayısı"
+                        label="Ortalama H2"
                         value={results.stage4_aggregateAnalysis.averageH2Count}
                       />
                       <StatCard
-                        label="Ortalama H3 Sayısı"
-                        value={results.stage4_aggregateAnalysis.averageH3Count}
+                        label="En Uzun Rakip"
+                        value={results.stage4_aggregateAnalysis.longestCompetitor.wordCount.toLocaleString()}
                       />
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <h4 className="font-semibold text-green-900 mb-2">En Uzun Rakip</h4>
-                        <p className="text-sm text-green-700 truncate">
-                          {new URL(results.stage4_aggregateAnalysis.longestCompetitor.url).hostname}
-                        </p>
-                        <p className="text-2xl font-bold text-green-900 mt-2">
-                          {results.stage4_aggregateAnalysis.longestCompetitor.wordCount.toLocaleString()} kelime
-                        </p>
-                      </div>
-                      <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                        <h4 className="font-semibold text-orange-900 mb-2">En Kısa Rakip</h4>
-                        <p className="text-sm text-orange-700 truncate">
-                          {new URL(results.stage4_aggregateAnalysis.shortestCompetitor.url).hostname}
-                        </p>
-                        <p className="text-2xl font-bold text-orange-900 mt-2">
-                          {results.stage4_aggregateAnalysis.shortestCompetitor.wordCount.toLocaleString()} kelime
-                        </p>
-                      </div>
-                    </div>
-
-                    {results.stage4_aggregateAnalysis.commonH2Headings.length > 0 && (
-                      <div className="mt-6">
-                        <h4 className="font-semibold text-gray-900 mb-3">Ortak H2 Başlıkları</h4>
-                        <div className="space-y-2">
-                          {results.stage4_aggregateAnalysis.commonH2Headings.slice(0, 10).map((heading, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                              <span className="text-sm text-gray-700">{heading.heading}</span>
-                              <span className="text-xs bg-black text-white px-2 py-1 rounded">
-                                {heading.frequency}x
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
 
-                {/* Stage 5: AI Strategy */}
+                {/* Strategy Selection */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
-                      <TrendingUp className="w-5 h-5 mr-2" />
-                      🟢 AŞAMA 5 – AI STRATEJİ & ÖNERİLER
+                      <Sparkles className="w-5 h-5 mr-2" />
+                      🎯 STRATEJİK ÖNERİLER - Uygulamak İstediklerinizi Seçin
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-6">
-                      {/* 1. Content Length */}
-                      <StrategySection
-                        title="📊 1. İÇERİK UZUNLUĞU"
-                        items={[
-                          `Rakip ortalama: ${results.stage5_aiStrategy.contentLength.competitorAverage} kelime`,
-                          `Rakip maksimum: ${results.stage5_aiStrategy.contentLength.competitorMax} kelime`,
-                          `ÖNERİLEN: ${results.stage5_aiStrategy.contentLength.recommendedWordCount} kelime`,
-                          results.stage5_aiStrategy.contentLength.reasoning,
-                        ]}
+                    <div className="space-y-4">
+                      {/* Word Count Strategy */}
+                      <StrategyCheckbox
+                        checked={selectedStrategies.useRecommendedWordCount}
+                        onChange={(checked) => setSelectedStrategies(s => ({ ...s, useRecommendedWordCount: checked }))}
+                        title="📊 Önerilen Kelime Sayısını Kullan"
+                        description={`${results.stage5_aiStrategy.contentLength.recommendedWordCount.toLocaleString()} kelime (Rakip ort: ${results.stage4_aggregateAnalysis.averageWordCount.toLocaleString()}, En uzun: ${results.stage4_aggregateAnalysis.longestCompetitor.wordCount.toLocaleString()})`}
+                        reasoning={results.stage5_aiStrategy.contentLength.reasoning}
                       />
 
-                      {/* 2. Heading Structure */}
-                      <StrategySection
-                        title="🏗️ 2. BAŞLIK YAPISI"
-                        items={[
-                          `Rakip ortalama H2: ${results.stage5_aiStrategy.headingStructure.recommendedH2Count - 3}`,
-                          `ÖNERİLEN H2 Sayısı: ${results.stage5_aiStrategy.headingStructure.recommendedH2Count}`,
-                          `Her H2 altında ${results.stage5_aiStrategy.headingStructure.recommendedH3PerH2} H3`,
-                        ]}
-                        extraContent={
-                          results.stage5_aiStrategy.headingStructure.suggestedH2s.length > 0 && (
-                            <div className="mt-4">
-                              <h5 className="font-semibold text-sm mb-2">Önerilen Yeni H2'ler:</h5>
-                              <ul className="space-y-1">
-                                {results.stage5_aiStrategy.headingStructure.suggestedH2s.map((h2, idx) => (
-                                  <li key={idx} className="text-sm text-gray-700">• {h2}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )
-                        }
-                      />
+                      {/* Heading Strategy */}
+                      {results.stage5_aiStrategy.headingStructure.suggestedH2s.length > 0 && (
+                        <StrategyCheckbox
+                          checked={selectedStrategies.useRecommendedH2s}
+                          onChange={(checked) => setSelectedStrategies(s => ({ ...s, useRecommendedH2s: checked }))}
+                          title="🏗️ Önerilen Başlıkları Kullan"
+                          description={`${results.stage5_aiStrategy.headingStructure.suggestedH2s.length} yeni H2 başlığı`}
+                          items={results.stage5_aiStrategy.headingStructure.suggestedH2s.slice(0, 5)}
+                        />
+                      )}
 
-                      {/* 3. Keywords */}
-                      <StrategySection
-                        title="🔑 3. ANAHTAR KELİMELER"
-                        items={[
-                          `Toplam rakip keyword: ${results.stage5_aiStrategy.keywords.competitorKeywords.length}`,
-                          `Keyword gap: ${results.stage5_aiStrategy.keywords.keywordGap.length} yeni fırsat`,
-                        ]}
-                        extraContent={
-                          <div className="mt-4">
-                            <h5 className="font-semibold text-sm mb-2">Keyword Gap (Fırsat Kelimeleri):</h5>
-                            <div className="flex flex-wrap gap-2">
-                              {results.stage5_aiStrategy.keywords.keywordGap.slice(0, 10).map((kw, idx) => (
-                                <span key={idx} className="px-3 py-1 bg-yellow-100 text-yellow-900 rounded-full text-sm">
-                                  {kw}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        }
-                      />
+                      {/* Keyword Gap */}
+                      {results.stage5_aiStrategy.keywords.keywordGap.length > 0 && (
+                        <StrategyCheckbox
+                          checked={selectedStrategies.useKeywordGap}
+                          onChange={(checked) => setSelectedStrategies(s => ({ ...s, useKeywordGap: checked }))}
+                          title="🔑 Keyword Gap'leri Kapat"
+                          description={`${results.stage5_aiStrategy.keywords.keywordGap.length} fırsat kelime`}
+                          items={results.stage5_aiStrategy.keywords.keywordGap.slice(0, 10)}
+                          chips
+                        />
+                      )}
 
-                      {/* 4. Meta */}
-                      <StrategySection
-                        title="📝 4. META BİLGİLERİ"
-                        items={[
-                          `Önerilen Title: ${results.stage5_aiStrategy.meta.suggestedTitle}`,
-                          `Önerilen Description: ${results.stage5_aiStrategy.meta.suggestedDescription}`,
-                        ]}
-                      />
+                      {/* Meta Title */}
+                      {results.stage5_aiStrategy.meta.suggestedTitle && (
+                        <StrategyCheckbox
+                          checked={selectedStrategies.useSuggestedTitle}
+                          onChange={(checked) => setSelectedStrategies(s => ({ ...s, useSuggestedTitle: checked }))}
+                          title="📝 Önerilen Title'ı Kullan"
+                          description={results.stage5_aiStrategy.meta.suggestedTitle}
+                        />
+                      )}
 
-                      {/* 5. FAQ */}
-                      <StrategySection
-                        title="❓ 5. FAQ / SSS"
-                        items={[
-                          `Rakip FAQ sayısı: ${results.stage5_aiStrategy.faq.competitorQuestions.length}`,
-                          `Toplam öneri: ${results.stage5_aiStrategy.faq.totalQuestionCount} soru`,
-                        ]}
-                        extraContent={
-                          results.stage5_aiStrategy.faq.suggestedNewQuestions.length > 0 && (
-                            <div className="mt-4">
-                              <h5 className="font-semibold text-sm mb-2">Yeni Soru Önerileri:</h5>
-                              <ul className="space-y-1">
-                                {results.stage5_aiStrategy.faq.suggestedNewQuestions.map((q, idx) => (
-                                  <li key={idx} className="text-sm text-gray-700">• {q}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )
-                        }
-                      />
+                      {/* FAQ */}
+                      {results.stage5_aiStrategy.faq.suggestedNewQuestions.length > 0 && (
+                        <StrategyCheckbox
+                          checked={selectedStrategies.useSuggestedFAQs}
+                          onChange={(checked) => setSelectedStrategies(s => ({ ...s, useSuggestedFAQs: checked }))}
+                          title="❓ Yeni FAQ Sorularını Ekle"
+                          description={`${results.stage5_aiStrategy.faq.suggestedNewQuestions.length} yeni soru`}
+                          items={results.stage5_aiStrategy.faq.suggestedNewQuestions}
+                        />
+                      )}
 
-                      {/* Critical Rules */}
-                      <div className="mt-8 p-6 bg-red-50 border-2 border-red-200 rounded-lg">
-                        <h3 className="font-bold text-red-900 mb-4 flex items-center">
-                          <AlertCircle className="w-5 h-5 mr-2" />
-                          ⚠️ KRİTİK KURALLAR
-                        </h3>
-                        <ul className="space-y-2">
-                          {results.stage5_aiStrategy.criticalRules.map((rule, idx) => (
-                            <li key={idx} className="text-sm text-red-800 flex items-start">
-                              <span className="mr-2">•</span>
-                              <span>{rule}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      {/* Content Gap */}
+                      {results.stage5_aiStrategy.contentGap.missedTopics.length > 0 && (
+                        <StrategyCheckbox
+                          checked={selectedStrategies.useContentGaps}
+                          onChange={(checked) => setSelectedStrategies(s => ({ ...s, useContentGaps: checked }))}
+                          title="🎯 Content Gap'leri Doldur"
+                          description={`Rakiplerin atladığı ${results.stage5_aiStrategy.contentGap.missedTopics.length} konu`}
+                          items={results.stage5_aiStrategy.contentGap.missedTopics}
+                        />
+                      )}
+                    </div>
+
+                    {/* Critical Rules */}
+                    <div className="mt-8 p-6 bg-red-50 border-2 border-red-200 rounded-lg">
+                      <h3 className="font-bold text-red-900 mb-4 flex items-center">
+                        <AlertCircle className="w-5 h-5 mr-2" />
+                        ⚠️ KRİTİK KURALLAR
+                      </h3>
+                      <ul className="space-y-2">
+                        {results.stage5_aiStrategy.criticalRules.map((rule, idx) => (
+                          <li key={idx} className="text-sm text-red-800 flex items-start">
+                            <span className="mr-2">•</span>
+                            <span>{rule}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
 
                     <div className="mt-8 flex justify-between">
                       <Button onClick={handleReset} variant="outline">
                         Yeni Analiz
                       </Button>
-                      <Button onClick={() => {
-                        // TODO: Create page ile entegre et
-                        window.location.href = '/create';
-                      }}>
+                      <Button
+                        onClick={handleGenerateContent}
+                        loading={generatingContent}
+                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
                         İçerik Oluştur
                       </Button>
                     </div>
@@ -494,6 +567,72 @@ export default function AnalyzePage() {
                 </Card>
               </>
             )}
+          </div>
+        )}
+
+        {/* Stage 4: Generated Content */}
+        {stage === 4 && generatedContent && (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>✨ Oluşturulan İçerik</span>
+                  <div className="flex gap-2">
+                    <Button onClick={handleCopyContent} variant="outline" size="sm">
+                      <Copy className="w-4 h-4 mr-2" />
+                      Kopyala
+                    </Button>
+                    <Button onClick={handleSaveContent} variant="outline" size="sm">
+                      <Save className="w-4 h-4 mr-2" />
+                      Kaydet
+                    </Button>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <StatCard
+                    label="SEO Skoru"
+                    value={`${generatedContent.seoScore.overall}/100`}
+                  />
+                  <StatCard
+                    label="Kelime Sayısı"
+                    value={generatedContent.fullMarkdown.split(/\s+/).filter(Boolean).length.toLocaleString()}
+                  />
+                  <StatCard
+                    label="Başlık Sayısı"
+                    value={generatedContent.structure.outline.length}
+                  />
+                  <StatCard
+                    label="FAQ Sayısı"
+                    value={generatedContent.content.faq.length}
+                  />
+                </div>
+
+                {/* Meta Info */}
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="font-semibold text-blue-900 mb-2">Meta Bilgileri</h3>
+                  <p className="text-sm text-blue-800 mb-1"><strong>Title:</strong> {generatedContent.meta.title}</p>
+                  <p className="text-sm text-blue-800"><strong>Description:</strong> {generatedContent.meta.description}</p>
+                </div>
+
+                {/* Content Preview */}
+                <div
+                  className="prose prose-sm max-w-none bg-white p-6 rounded-lg border border-gray-200"
+                  dangerouslySetInnerHTML={{ __html: marked(generatedContent.fullMarkdown) }}
+                />
+
+                <div className="mt-6 flex justify-between">
+                  <Button onClick={() => setStage(3)} variant="outline">
+                    Geri
+                  </Button>
+                  <Button onClick={handleReset}>
+                    Yeni İçerik
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </Container>
@@ -527,27 +666,61 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function StrategySection({
+function StrategyCheckbox({
+  checked,
+  onChange,
   title,
+  description,
+  reasoning,
   items,
-  extraContent,
+  chips,
 }: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
   title: string;
-  items: string[];
-  extraContent?: React.ReactNode;
+  description: string;
+  reasoning?: string;
+  items?: string[];
+  chips?: boolean;
 }) {
   return (
-    <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-      <h3 className="font-bold text-gray-900 mb-3">{title}</h3>
-      <ul className="space-y-2">
-        {items.map((item, idx) => (
-          <li key={idx} className="text-sm text-gray-700 flex items-start">
-            <span className="mr-2">□</span>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-      {extraContent}
+    <div
+      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+        checked
+          ? 'border-black bg-black bg-opacity-5'
+          : 'border-gray-200 hover:border-gray-300'
+      }`}
+      onClick={() => onChange(!checked)}
+    >
+      <div className="flex items-start">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="mt-1 mr-3 w-5 h-5 cursor-pointer"
+          onClick={(e) => e.stopPropagation()}
+        />
+        <div className="flex-1">
+          <h4 className="font-bold text-gray-900 mb-1">{title}</h4>
+          <p className="text-sm text-gray-700 mb-2">{description}</p>
+          {reasoning && (
+            <p className="text-xs text-gray-600 italic mb-2">{reasoning}</p>
+          )}
+          {items && items.length > 0 && (
+            <div className={chips ? 'flex flex-wrap gap-2 mt-2' : 'mt-2 space-y-1'}>
+              {items.map((item, idx) => (
+                chips ? (
+                  <span key={idx} className="px-2 py-1 bg-yellow-100 text-yellow-900 rounded text-xs">
+                    {item}
+                  </span>
+                ) : (
+                  <div key={idx} className="text-xs text-gray-600">• {item}</div>
+                )
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
