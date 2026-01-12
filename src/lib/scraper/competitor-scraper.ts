@@ -1,5 +1,8 @@
-import puppeteer from 'puppeteer';
-import * as cheerio from 'cheerio';
+// Puppeteer ve Cheerio şu anda yüklü değil - kullanmak için:
+// npm install puppeteer cheerio
+
+// import puppeteer from 'puppeteer';
+// import * as cheerio from 'cheerio';
 import type {
   CompetitorAnalysis,
   HeadingStructure,
@@ -13,6 +16,17 @@ import type {
 } from '@/types/competitor';
 
 export async function scrapeCompetitorURL(url: string): Promise<CompetitorAnalysis> {
+  throw new Error(
+    '❌ Rakip analizi şu anda kullanılamıyor.\n\n' +
+    '📦 Kurulum için:\n' +
+    '   npm install puppeteer cheerio\n\n' +
+    '⏳ İlk kurulumda Chromium indirilecek (~150MB)\n\n' +
+    '💡 Not: Puppeteer yüklendikten sonra bu dosyadaki\n' +
+    '   yorumları kaldırın ve kodu aktif edin.'
+  );
+
+  /* Puppeteer yüklendiğinde bu kodu aktif edin:
+
   let browser;
 
   try {
@@ -335,3 +349,4 @@ function analyzeContentQuality($: cheerio.CheerioAPI): ContentQuality {
     videoCount: videos,
   };
 }
+*/
