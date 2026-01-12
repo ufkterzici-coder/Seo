@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import Container from '@/components/layout/Container';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
@@ -9,7 +9,7 @@ import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Select from '@/components/ui/Select';
 import KeywordSelector from '@/components/content/KeywordSelector';
-import { Search, CheckCircle, XCircle, AlertCircle, TrendingUp, Sparkles, Copy, Save } from 'lucide-react';
+import { Search, CheckCircle, XCircle, AlertCircle, Sparkles, Copy, Save, Target, TrendingUp, FileText, MessageSquare, Link as LinkIcon, Award } from 'lucide-react';
 import type { FullCompetitorAnalysisResult } from '@/types/competitor';
 import type { GenerateContentResponse } from '@/types/api';
 import { marked } from 'marked';
@@ -33,7 +33,7 @@ export default function AnalyzePage() {
   const [results, setResults] = useState<FullCompetitorAnalysisResult | null>(null);
   const [error, setError] = useState('');
 
-  // Stage 4 - Content generation
+  // Stage 3 - Strategy selection
   const [selectedStrategies, setSelectedStrategies] = useState<{
     useRecommendedWordCount: boolean;
     useRecommendedH2s: boolean;
@@ -50,8 +50,68 @@ export default function AnalyzePage() {
     useContentGaps: true,
   });
 
+  // Stage 4 - Content generation
   const [generatingContent, setGeneratingContent] = useState(false);
   const [generatedContent, setGeneratedContent] = useState<GenerateContentResponse | null>(null);
+
+  // Dynamic prompt preview
+  const [promptPreview, setPromptPreview] = useState('');
+
+  useEffect(() => {
+    if (results && stage === 3) {
+      updatePromptPreview();
+    }
+  }, [selectedStrategies, results, stage]);
+
+  function updatePromptPreview() {
+    if (!results) return;
+
+    const instructions: string[] = [];
+
+    instructions.push(`# İçerik Talebi`);
+    instructions.push(`Konu: ${topic}`);
+    instructions.push(`Ana Anahtar Kelime: ${mainKeyword}`);
+
+    if (selectedStrategies.useRecommendedWordCount) {
+      instructions.push(`Hedef Kelime Sayısı: ${results.stage5_aiStrategy.contentLength.recommendedWordCount} kelime`);
+      instructions.push(`(Rakip ort: ${results.stage4_aggregateAnalysis.averageWordCount}, En uzun: ${results.stage4_aggregateAnalysis.longestCompetitor.wordCount})`);
+    } else {
+      instructions.push(`Hedef Kelime Sayısı: ${wordCount} kelime`);
+    }
+
+    if (selectedStrategies.useRecommendedH2s && results.stage5_aiStrategy.headingStructure.suggestedH2s.length > 0) {
+      instructions.push(`\n## Kullanılacak H2 Başlıkları:`);
+      results.stage5_aiStrategy.headingStructure.suggestedH2s.forEach(h => {
+        instructions.push(`- ${h}`);
+      });
+    }
+
+    if (selectedStrategies.useKeywordGap && results.stage5_aiStrategy.keywords.keywordGap.length > 0) {
+      instructions.push(`\n## Keyword Gap (Fırsat Kelimeleri):`);
+      instructions.push(results.stage5_aiStrategy.keywords.keywordGap.slice(0, 10).join(', '));
+    }
+
+    if (selectedStrategies.useContentGaps && results.stage5_aiStrategy.contentGap.missedTopics.length > 0) {
+      instructions.push(`\n## Content Gap (Rakiplerin Atladığı Konular):`);
+      results.stage5_aiStrategy.contentGap.missedTopics.forEach(t => {
+        instructions.push(`- ${t}`);
+      });
+    }
+
+    if (selectedStrategies.useSuggestedFAQs && results.stage5_aiStrategy.faq.suggestedNewQuestions.length > 0) {
+      instructions.push(`\n## FAQ Soruları:`);
+      results.stage5_aiStrategy.faq.suggestedNewQuestions.forEach(q => {
+        instructions.push(`- ${q}`);
+      });
+    }
+
+    instructions.push(`\n## Kritik Kurallar:`);
+    results.stage5_aiStrategy.criticalRules.forEach(rule => {
+      instructions.push(`• ${rule}`);
+    });
+
+    setPromptPreview(instructions.join('\n'));
+  }
 
   async function handleStage1Next() {
     if (!topic || !mainKeyword) {
@@ -116,7 +176,6 @@ export default function AnalyzePage() {
     setError('');
 
     try {
-      // Build additional instructions based on selected strategies
       const instructions: string[] = [];
 
       if (selectedStrategies.useRecommendedH2s && results.stage5_aiStrategy.headingStructure.suggestedH2s.length > 0) {
@@ -134,7 +193,6 @@ export default function AnalyzePage() {
         instructions.push(results.stage5_aiStrategy.faq.suggestedNewQuestions.map(q => `- ${q}`).join('\n'));
       }
 
-      // Collect keywords
       const keywords: string[] = [mainKeyword, ...selectedKeywords];
       if (selectedStrategies.useKeywordGap) {
         keywords.push(...results.stage5_aiStrategy.keywords.keywordGap.slice(0, 10));
@@ -194,8 +252,8 @@ export default function AnalyzePage() {
         body: JSON.stringify({
           title: generatedContent.meta.title,
           content: generatedContent.fullMarkdown,
-          seoScore: generatedContent.seoScore.overall,
-          wordCount: generatedContent.fullMarkdown.split(/\s+/).filter(Boolean).length,
+          seo_score: generatedContent.seoScore.overall,
+          word_count: generatedContent.fullMarkdown.split(/\s+/).filter(Boolean).length,
           keywords: [generatedContent.seo.primaryKeyword, ...generatedContent.seo.secondaryKeywords],
         }),
       });
@@ -222,25 +280,60 @@ export default function AnalyzePage() {
     setUrls('');
   }
 
+  function handleStageClick(targetStage: 1 | 2 | 3 | 4) {
+    // Can only go back to completed stages
+    if (targetStage < stage) {
+      setStage(targetStage);
+    }
+  }
+
   return (
     <>
       <Navbar />
-      <Container>
+      <Container className="max-w-7xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Profesyonel Rakip Analizi</h1>
           <p className="text-gray-600">Rakip içeriklerini analiz edin, strateji belirleyin ve AI ile içerik oluşturun</p>
         </div>
 
-        {/* Progress Steps */}
-        <div className="mb-8 flex items-center justify-center">
-          <div className="flex items-center space-x-4">
-            <StepIndicator number={1} label="Konu & Strateji" active={stage >= 1} />
-            <div className="w-16 h-0.5 bg-gray-200"></div>
-            <StepIndicator number={2} label="Rakip URL'leri" active={stage >= 2} />
-            <div className="w-16 h-0.5 bg-gray-200"></div>
-            <StepIndicator number={3} label="Analiz Sonuçları" active={stage >= 3} />
-            <div className="w-16 h-0.5 bg-gray-200"></div>
-            <StepIndicator number={4} label="İçerik Oluştur" active={stage >= 4} />
+        {/* Modern Progress Steps - Tıklanabilir */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between max-w-4xl mx-auto">
+            <ProgressStep
+              number={1}
+              label="Konu & Strateji"
+              active={stage >= 1}
+              completed={stage > 1}
+              onClick={() => handleStageClick(1)}
+              clickable={stage > 1}
+            />
+            <ProgressLine completed={stage > 1} />
+            <ProgressStep
+              number={2}
+              label="Rakip URL'leri"
+              active={stage >= 2}
+              completed={stage > 2}
+              onClick={() => handleStageClick(2)}
+              clickable={stage > 2}
+            />
+            <ProgressLine completed={stage > 2} />
+            <ProgressStep
+              number={3}
+              label="Analiz Sonuçları"
+              active={stage >= 3}
+              completed={stage > 3}
+              onClick={() => handleStageClick(3)}
+              clickable={stage > 3}
+            />
+            <ProgressLine completed={stage > 3} />
+            <ProgressStep
+              number={4}
+              label="İçerik Oluştur"
+              active={stage >= 4}
+              completed={false}
+              onClick={() => handleStageClick(4)}
+              clickable={stage > 4}
+            />
           </div>
         </div>
 
@@ -345,15 +438,30 @@ export default function AnalyzePage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 mb-2">Konu: {topic}</h4>
-                  <p className="text-sm text-blue-700 mb-1">Ana Kelime: {mainKeyword}</p>
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2">📋 Özet</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-blue-700 mb-1"><strong>Konu:</strong> {topic}</p>
+                      <p className="text-sm text-blue-700 mb-1"><strong>Ana Kelime:</strong> {mainKeyword}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-blue-700 mb-1"><strong>Tip:</strong> {contentType}</p>
+                      <p className="text-sm text-blue-700"><strong>Ton:</strong> {tone}</p>
+                    </div>
+                  </div>
                   {selectedKeywords.length > 0 && (
-                    <p className="text-sm text-blue-700 mb-1">
-                      İkincil Kelimeler: {selectedKeywords.join(', ')}
-                    </p>
+                    <div className="mt-2 pt-2 border-t border-blue-200">
+                      <p className="text-sm text-blue-700 mb-2"><strong>İkincil Kelimeler:</strong></p>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedKeywords.map((kw, idx) => (
+                          <span key={idx} className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
+                            {kw}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                  <p className="text-sm text-blue-700">Tip: {contentType} | Ton: {tone}</p>
                 </div>
 
                 <Textarea
@@ -386,201 +494,183 @@ export default function AnalyzePage() {
 
         {/* Stage 3: Analysis Results & Strategy Selection */}
         {stage === 3 && (
-          <div className="space-y-6">
-            {loading && (
-              <Card>
-                <CardContent>
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
-                    <p className="text-gray-600">Rakipler analiz ediliyor...</p>
-                    <p className="text-sm text-gray-500 mt-2">Bu işlem 1-3 dakika sürebilir</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {error && !results && (
-              <Card>
-                <CardContent>
-                  <div className="text-center py-12">
-                    <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                    <p className="text-red-700 font-semibold">{error}</p>
-                    <Button onClick={handleReset} className="mt-4">
-                      Baştan Başla
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {results && (
-              <>
-                {/* Scraping Status */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column: Analysis Results */}
+            <div className="lg:col-span-2 space-y-6">
+              {loading && (
                 <Card>
-                  <CardHeader>
-                    <CardTitle>📊 Scraping Sonuçları</CardTitle>
-                  </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      {results.stage2_scraping.scrapeStatus.map((status, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <span className="text-sm text-gray-700 truncate flex-1">{status.url}</span>
-                          <div className="flex items-center ml-4">
-                            {status.status === 'success' && (
-                              <div className="flex items-center text-green-600">
-                                <CheckCircle className="w-5 h-5 mr-1" />
-                                <span className="text-sm font-medium">Başarılı</span>
-                              </div>
-                            )}
-                            {status.status === 'error' && (
-                              <div className="flex items-center text-red-600">
-                                <XCircle className="w-5 h-5 mr-1" />
-                                <span className="text-sm font-medium">Hata</span>
-                              </div>
+                    <div className="text-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
+                      <p className="text-gray-600">Rakipler analiz ediliyor...</p>
+                      <p className="text-sm text-gray-500 mt-2">Bu işlem 1-3 dakika sürebilir</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {error && !results && (
+                <Card>
+                  <CardContent>
+                    <div className="text-center py-12">
+                      <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                      <p className="text-red-700 font-semibold">{error}</p>
+                      <Button onClick={handleReset} className="mt-4">
+                        Baştan Başla
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {results && (
+                <>
+                  {/* Scraping Status */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">📊 Rakip İstatistikleri</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <StatCard
+                          icon={<FileText className="w-5 h-5" />}
+                          label="Ortalama Kelime"
+                          value={results.stage4_aggregateAnalysis.averageWordCount.toLocaleString()}
+                          color="blue"
+                        />
+                        <StatCard
+                          icon={<Target className="w-5 h-5" />}
+                          label="Ortalama H2"
+                          value={results.stage4_aggregateAnalysis.averageH2Count}
+                          color="purple"
+                        />
+                        <StatCard
+                          icon={<TrendingUp className="w-5 h-5" />}
+                          label="En Uzun Rakip"
+                          value={results.stage4_aggregateAnalysis.longestCompetitor.wordCount.toLocaleString()}
+                          color="green"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        {results.stage2_scraping.scrapeStatus.map((status, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
+                            <span className="text-gray-700 truncate flex-1">{new URL(status.url).hostname}</span>
+                            {status.status === 'success' ? (
+                              <CheckCircle className="w-4 h-4 text-green-600 ml-2" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-red-600 ml-2" />
                             )}
                           </div>
-                        </div>
-                      ))}
-                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-sm text-blue-900">
-                          ✅ {results.stage2_scraping.successCount} başarılı |
-                          ❌ {results.stage2_scraping.errorCount} hata
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Aggregate Stats */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>📈 Rakip İstatistikleri</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <StatCard
-                        label="Ortalama Kelime"
-                        value={results.stage4_aggregateAnalysis.averageWordCount.toLocaleString()}
-                      />
-                      <StatCard
-                        label="Ortalama H2"
-                        value={results.stage4_aggregateAnalysis.averageH2Count}
-                      />
-                      <StatCard
-                        label="En Uzun Rakip"
-                        value={results.stage4_aggregateAnalysis.longestCompetitor.wordCount.toLocaleString()}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Strategy Selection */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Sparkles className="w-5 h-5 mr-2" />
-                      🎯 STRATEJİK ÖNERİLER - Uygulamak İstediklerinizi Seçin
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {/* Word Count Strategy */}
-                      <StrategyCheckbox
-                        checked={selectedStrategies.useRecommendedWordCount}
-                        onChange={(checked) => setSelectedStrategies(s => ({ ...s, useRecommendedWordCount: checked }))}
-                        title="📊 Önerilen Kelime Sayısını Kullan"
-                        description={`${results.stage5_aiStrategy.contentLength.recommendedWordCount.toLocaleString()} kelime (Rakip ort: ${results.stage4_aggregateAnalysis.averageWordCount.toLocaleString()}, En uzun: ${results.stage4_aggregateAnalysis.longestCompetitor.wordCount.toLocaleString()})`}
-                        reasoning={results.stage5_aiStrategy.contentLength.reasoning}
-                      />
-
-                      {/* Heading Strategy */}
-                      {results.stage5_aiStrategy.headingStructure.suggestedH2s.length > 0 && (
-                        <StrategyCheckbox
-                          checked={selectedStrategies.useRecommendedH2s}
-                          onChange={(checked) => setSelectedStrategies(s => ({ ...s, useRecommendedH2s: checked }))}
-                          title="🏗️ Önerilen Başlıkları Kullan"
-                          description={`${results.stage5_aiStrategy.headingStructure.suggestedH2s.length} yeni H2 başlığı`}
-                          items={results.stage5_aiStrategy.headingStructure.suggestedH2s.slice(0, 5)}
-                        />
-                      )}
-
-                      {/* Keyword Gap */}
-                      {results.stage5_aiStrategy.keywords.keywordGap.length > 0 && (
-                        <StrategyCheckbox
-                          checked={selectedStrategies.useKeywordGap}
-                          onChange={(checked) => setSelectedStrategies(s => ({ ...s, useKeywordGap: checked }))}
-                          title="🔑 Keyword Gap'leri Kapat"
-                          description={`${results.stage5_aiStrategy.keywords.keywordGap.length} fırsat kelime`}
-                          items={results.stage5_aiStrategy.keywords.keywordGap.slice(0, 10)}
-                          chips
-                        />
-                      )}
-
-                      {/* Meta Title */}
-                      {results.stage5_aiStrategy.meta.suggestedTitle && (
-                        <StrategyCheckbox
-                          checked={selectedStrategies.useSuggestedTitle}
-                          onChange={(checked) => setSelectedStrategies(s => ({ ...s, useSuggestedTitle: checked }))}
-                          title="📝 Önerilen Title'ı Kullan"
-                          description={results.stage5_aiStrategy.meta.suggestedTitle}
-                        />
-                      )}
-
-                      {/* FAQ */}
-                      {results.stage5_aiStrategy.faq.suggestedNewQuestions.length > 0 && (
-                        <StrategyCheckbox
-                          checked={selectedStrategies.useSuggestedFAQs}
-                          onChange={(checked) => setSelectedStrategies(s => ({ ...s, useSuggestedFAQs: checked }))}
-                          title="❓ Yeni FAQ Sorularını Ekle"
-                          description={`${results.stage5_aiStrategy.faq.suggestedNewQuestions.length} yeni soru`}
-                          items={results.stage5_aiStrategy.faq.suggestedNewQuestions}
-                        />
-                      )}
-
-                      {/* Content Gap */}
-                      {results.stage5_aiStrategy.contentGap.missedTopics.length > 0 && (
-                        <StrategyCheckbox
-                          checked={selectedStrategies.useContentGaps}
-                          onChange={(checked) => setSelectedStrategies(s => ({ ...s, useContentGaps: checked }))}
-                          title="🎯 Content Gap'leri Doldur"
-                          description={`Rakiplerin atladığı ${results.stage5_aiStrategy.contentGap.missedTopics.length} konu`}
-                          items={results.stage5_aiStrategy.contentGap.missedTopics}
-                        />
-                      )}
-                    </div>
-
-                    {/* Critical Rules */}
-                    <div className="mt-8 p-6 bg-red-50 border-2 border-red-200 rounded-lg">
-                      <h3 className="font-bold text-red-900 mb-4 flex items-center">
-                        <AlertCircle className="w-5 h-5 mr-2" />
-                        ⚠️ KRİTİK KURALLAR
-                      </h3>
-                      <ul className="space-y-2">
-                        {results.stage5_aiStrategy.criticalRules.map((rule, idx) => (
-                          <li key={idx} className="text-sm text-red-800 flex items-start">
-                            <span className="mr-2">•</span>
-                            <span>{rule}</span>
-                          </li>
                         ))}
-                      </ul>
-                    </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                    <div className="mt-8 flex justify-between">
-                      <Button onClick={handleReset} variant="outline">
-                        Yeni Analiz
-                      </Button>
-                      <Button
-                        onClick={handleGenerateContent}
-                        loading={generatingContent}
-                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                      >
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        İçerik Oluştur
-                      </Button>
+                  {/* Strategy Selection - Modern Cards */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center text-lg">
+                        <Sparkles className="w-5 h-5 mr-2" />
+                        🎯 Uygulamak İstediğiniz Stratejiler
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <ModernStrategyCard
+                          icon={<FileText className="w-5 h-5" />}
+                          title="Önerilen Kelime Sayısını Kullan"
+                          description={`${results.stage5_aiStrategy.contentLength.recommendedWordCount.toLocaleString()} kelime`}
+                          detail={`Rakip ort: ${results.stage4_aggregateAnalysis.averageWordCount.toLocaleString()}`}
+                          checked={selectedStrategies.useRecommendedWordCount}
+                          onChange={(checked) => setSelectedStrategies(s => ({ ...s, useRecommendedWordCount: checked }))}
+                          color="blue"
+                        />
+
+                        {results.stage5_aiStrategy.headingStructure.suggestedH2s.length > 0 && (
+                          <ModernStrategyCard
+                            icon={<Target className="w-5 h-5" />}
+                            title="Önerilen Başlıkları Kullan"
+                            description={`${results.stage5_aiStrategy.headingStructure.suggestedH2s.length} yeni H2 başlığı`}
+                            detail={results.stage5_aiStrategy.headingStructure.suggestedH2s.slice(0, 2).join(', ')}
+                            checked={selectedStrategies.useRecommendedH2s}
+                            onChange={(checked) => setSelectedStrategies(s => ({ ...s, useRecommendedH2s: checked }))}
+                            color="purple"
+                          />
+                        )}
+
+                        {results.stage5_aiStrategy.keywords.keywordGap.length > 0 && (
+                          <ModernStrategyCard
+                            icon={<Award className="w-5 h-5" />}
+                            title="Keyword Gap'leri Kapat"
+                            description={`${results.stage5_aiStrategy.keywords.keywordGap.length} fırsat kelime`}
+                            chips={results.stage5_aiStrategy.keywords.keywordGap.slice(0, 5)}
+                            checked={selectedStrategies.useKeywordGap}
+                            onChange={(checked) => setSelectedStrategies(s => ({ ...s, useKeywordGap: checked }))}
+                            color="yellow"
+                          />
+                        )}
+
+                        {results.stage5_aiStrategy.faq.suggestedNewQuestions.length > 0 && (
+                          <ModernStrategyCard
+                            icon={<MessageSquare className="w-5 h-5" />}
+                            title="Yeni FAQ Sorularını Ekle"
+                            description={`${results.stage5_aiStrategy.faq.suggestedNewQuestions.length} yeni soru`}
+                            checked={selectedStrategies.useSuggestedFAQs}
+                            onChange={(checked) => setSelectedStrategies(s => ({ ...s, useSuggestedFAQs: checked }))}
+                            color="green"
+                          />
+                        )}
+
+                        {results.stage5_aiStrategy.contentGap.missedTopics.length > 0 && (
+                          <ModernStrategyCard
+                            icon={<TrendingUp className="w-5 h-5" />}
+                            title="Content Gap'leri Doldur"
+                            description={`${results.stage5_aiStrategy.contentGap.missedTopics.length} eksik konu`}
+                            detail="Rakiplerin atladığı konular"
+                            checked={selectedStrategies.useContentGaps}
+                            onChange={(checked) => setSelectedStrategies(s => ({ ...s, useContentGaps: checked }))}
+                            color="orange"
+                          />
+                        )}
+                      </div>
+
+                      <div className="mt-6 flex justify-between">
+                        <Button onClick={handleReset} variant="outline">
+                          Yeni Analiz
+                        </Button>
+                        <Button
+                          onClick={handleGenerateContent}
+                          loading={generatingContent}
+                          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          İçerik Oluştur
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </div>
+
+            {/* Right Column: Live Prompt Preview */}
+            {results && (
+              <div className="lg:col-span-1">
+                <Card className="sticky top-4">
+                  <CardHeader>
+                    <CardTitle className="text-lg">📝 Canlı Prompt Önizlemesi</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-gray-900 text-gray-100 p-4 rounded-lg text-xs font-mono overflow-auto max-h-[600px]">
+                      <pre className="whitespace-pre-wrap">{promptPreview || 'Strateji seçimleriniz burada görünecek...'}</pre>
+                    </div>
+                    <div className="mt-3 text-xs text-gray-500">
+                      ✨ Seçimleriniz prompt'u dinamik olarak günceller
                     </div>
                   </CardContent>
                 </Card>
-              </>
+              </div>
             )}
           </div>
         )}
@@ -605,34 +695,39 @@ export default function AnalyzePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                   <StatCard
+                    icon={<Award className="w-5 h-5" />}
                     label="SEO Skoru"
                     value={`${generatedContent.seoScore.overall}/100`}
+                    color="green"
                   />
                   <StatCard
+                    icon={<FileText className="w-5 h-5" />}
                     label="Kelime Sayısı"
                     value={generatedContent.fullMarkdown.split(/\s+/).filter(Boolean).length.toLocaleString()}
+                    color="blue"
                   />
                   <StatCard
+                    icon={<Target className="w-5 h-5" />}
                     label="Başlık Sayısı"
                     value={generatedContent.structure.outline.length}
+                    color="purple"
                   />
                   <StatCard
+                    icon={<MessageSquare className="w-5 h-5" />}
                     label="FAQ Sayısı"
                     value={generatedContent.content.faq.length}
+                    color="orange"
                   />
                 </div>
 
-                {/* Meta Info */}
                 <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <h3 className="font-semibold text-blue-900 mb-2">Meta Bilgileri</h3>
                   <p className="text-sm text-blue-800 mb-1"><strong>Title:</strong> {generatedContent.meta.title}</p>
                   <p className="text-sm text-blue-800"><strong>Description:</strong> {generatedContent.meta.description}</p>
                 </div>
 
-                {/* Content Preview */}
                 <div
                   className="prose prose-sm max-w-none bg-white p-6 rounded-lg border border-gray-200"
                   dangerouslySetInnerHTML={{ __html: marked(generatedContent.fullMarkdown) }}
@@ -655,55 +750,125 @@ export default function AnalyzePage() {
   );
 }
 
-function StepIndicator({ number, label, active }: { number: number; label: string; active: boolean }) {
+function ProgressStep({
+  number,
+  label,
+  active,
+  completed,
+  onClick,
+  clickable,
+}: {
+  number: number;
+  label: string;
+  active: boolean;
+  completed: boolean;
+  onClick: () => void;
+  clickable: boolean;
+}) {
   return (
-    <div className="flex flex-col items-center">
+    <div
+      className={`flex flex-col items-center ${clickable ? 'cursor-pointer' : ''}`}
+      onClick={clickable ? onClick : undefined}
+    >
       <div
-        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-          active ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'
-        }`}
+        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+          completed
+            ? 'bg-green-600 text-white'
+            : active
+            ? 'bg-black text-white'
+            : 'bg-gray-200 text-gray-500'
+        } ${clickable ? 'hover:scale-110' : ''}`}
       >
-        {number}
+        {completed ? <CheckCircle className="w-6 h-6" /> : number}
       </div>
-      <span className={`text-xs mt-2 ${active ? 'text-black font-medium' : 'text-gray-500'}`}>
+      <span className={`text-xs mt-2 text-center ${active ? 'text-black font-medium' : 'text-gray-500'}`}>
         {label}
       </span>
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function ProgressLine({ completed }: { completed: boolean }) {
   return (
-    <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-      <p className="text-sm text-gray-600 mb-1">{label}</p>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
+    <div className="flex-1 h-0.5 bg-gray-200 mx-2">
+      <div
+        className={`h-full transition-all duration-500 ${completed ? 'bg-green-600 w-full' : 'bg-gray-200 w-0'}`}
+      />
     </div>
   );
 }
 
-function StrategyCheckbox({
-  checked,
-  onChange,
+function StatCard({
+  icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  color: string;
+}) {
+  const colorClasses = {
+    blue: 'bg-blue-50 text-blue-600 border-blue-200',
+    purple: 'bg-purple-50 text-purple-600 border-purple-200',
+    green: 'bg-green-50 text-green-600 border-green-200',
+    orange: 'bg-orange-50 text-orange-600 border-orange-200',
+    yellow: 'bg-yellow-50 text-yellow-600 border-yellow-200',
+  };
+
+  return (
+    <div className={`p-3 rounded-lg border ${colorClasses[color as keyof typeof colorClasses]}`}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-medium">{label}</span>
+        {icon}
+      </div>
+      <div className="text-2xl font-bold">{value}</div>
+    </div>
+  );
+}
+
+function ModernStrategyCard({
+  icon,
   title,
   description,
-  reasoning,
-  items,
+  detail,
   chips,
+  checked,
+  onChange,
+  color,
 }: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
+  icon: React.ReactNode;
   title: string;
   description: string;
-  reasoning?: string;
-  items?: string[];
-  chips?: boolean;
+  detail?: string;
+  chips?: string[];
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  color: string;
 }) {
+  const colorClasses = {
+    blue: 'border-blue-500 bg-blue-50',
+    purple: 'border-purple-500 bg-purple-50',
+    green: 'border-green-500 bg-green-50',
+    orange: 'border-orange-500 bg-orange-50',
+    yellow: 'border-yellow-500 bg-yellow-50',
+  };
+
+  const iconColorClasses = {
+    blue: 'text-blue-600',
+    purple: 'text-purple-600',
+    green: 'text-green-600',
+    orange: 'text-orange-600',
+    yellow: 'text-yellow-600',
+  };
+
   return (
     <div
-      className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+      className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
         checked
-          ? 'border-black bg-black bg-opacity-5'
-          : 'border-gray-200 hover:border-gray-300'
+          ? `${colorClasses[color as keyof typeof colorClasses]} shadow-md`
+          : 'border-gray-200 bg-white hover:border-gray-300'
       }`}
       onClick={() => onChange(!checked)}
     >
@@ -716,21 +881,18 @@ function StrategyCheckbox({
           onClick={(e) => e.stopPropagation()}
         />
         <div className="flex-1">
-          <h4 className="font-bold text-gray-900 mb-1">{title}</h4>
-          <p className="text-sm text-gray-700 mb-2">{description}</p>
-          {reasoning && (
-            <p className="text-xs text-gray-600 italic mb-2">{reasoning}</p>
-          )}
-          {items && items.length > 0 && (
-            <div className={chips ? 'flex flex-wrap gap-2 mt-2' : 'mt-2 space-y-1'}>
-              {items.map((item, idx) => (
-                chips ? (
-                  <span key={idx} className="px-2 py-1 bg-yellow-100 text-yellow-900 rounded text-xs">
-                    {item}
-                  </span>
-                ) : (
-                  <div key={idx} className="text-xs text-gray-600">• {item}</div>
-                )
+          <div className="flex items-center mb-1">
+            <span className={`mr-2 ${iconColorClasses[color as keyof typeof iconColorClasses]}`}>{icon}</span>
+            <h4 className="font-bold text-gray-900 text-sm">{title}</h4>
+          </div>
+          <p className="text-sm text-gray-700 mb-1">{description}</p>
+          {detail && <p className="text-xs text-gray-600 italic">{detail}</p>}
+          {chips && chips.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {chips.map((chip, idx) => (
+                <span key={idx} className="px-2 py-0.5 bg-yellow-100 text-yellow-900 rounded text-xs">
+                  {chip}
+                </span>
               ))}
             </div>
           )}
