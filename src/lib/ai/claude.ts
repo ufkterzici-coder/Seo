@@ -1,3 +1,32 @@
+// Claude SDK şu anda yüklü değil - kullanmak için aşağıdaki adımları izleyin:
+// 1. npm install @anthropic-ai/sdk
+// 2. .env.local dosyasına CLAUDE_API_KEY=sk-ant-xxx ekleyin
+// 3. Bu dosyadaki yorumları kaldırın ve aktif hale getirin
+
+// import Anthropic from '@anthropic-ai/sdk';
+
+export async function generateWithClaude(
+  prompt: string,
+  systemPrompt: string,
+  model: string = 'claude-3-5-sonnet-20241022'
+): Promise<string> {
+  throw new Error(
+    '❌ Claude AI şu anda kullanılamıyor.\n\n' +
+    '📦 Kurulum için:\n' +
+    '   npm install @anthropic-ai/sdk\n\n' +
+    '🔑 API Key için:\n' +
+    '   .env.local dosyasına CLAUDE_API_KEY=sk-ant-xxx ekleyin\n\n' +
+    '💡 Alternatif: Şimdilik "Groq" seçeneğini kullanabilirsiniz.'
+  );
+}
+
+export default function getClaudeClient() {
+  throw new Error('Claude SDK yüklü değil');
+}
+
+/*
+// Claude SDK yüklendiğinde bu kodu aktif edin:
+
 import Anthropic from '@anthropic-ai/sdk';
 
 let claudeInstance: Anthropic | null = null;
@@ -28,8 +57,8 @@ export async function generateWithClaude(
 
     const response = await claude.messages.create({
       model,
-      max_tokens: 16000, // Increased for longer content generation
-      temperature: 0.5, // Increased for more creative, longer content
+      max_tokens: 16000,
+      temperature: 0.5,
       system: systemPrompt,
       messages: [
         { role: 'user', content: prompt }
@@ -45,3 +74,4 @@ export async function generateWithClaude(
 }
 
 export default getClaudeClient;
+*/
