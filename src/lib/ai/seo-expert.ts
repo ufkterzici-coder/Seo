@@ -195,7 +195,7 @@ ${request.competitorUrls && request.competitorUrls.length > 0 ? `
 
   try {
     if (request.aiProvider === 'claude') {
-      response = await generateWithClaude(userPrompt, SEO_EXPERT_SYSTEM_PROMPT, 'claude-3-5-sonnet-20241022');
+      response = await generateWithClaude(userPrompt, SEO_EXPERT_SYSTEM_PROMPT);
     } else {
       response = await generateWithGroq(userPrompt, SEO_EXPERT_SYSTEM_PROMPT, 'llama-3.3-70b-versatile');
     }

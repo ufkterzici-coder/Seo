@@ -21,7 +21,7 @@ export default function getClaudeClient(): Anthropic {
 export async function generateWithClaude(
   prompt: string,
   systemPrompt: string,
-  model: string = 'claude-3-5-sonnet-20241022'
+  model: string = 'claude-sonnet-4-20250514'
 ): Promise<string> {
   try {
     const claude = getClaudeClient();

@@ -70,7 +70,7 @@ export default function AnalyzePage() {
     const instructions: string[] = [];
 
     instructions.push(`# İçerik Talebi`);
-    instructions.push(`AI Modeli: ${aiProvider === 'groq' ? '🚀 Groq (Llama 3.3 70B)' : '🧠 Claude (Sonnet 3.5)'}`);
+    instructions.push(`AI Modeli: ${aiProvider === 'groq' ? '🚀 Groq (Llama 3.3 70B)' : '🧠 Claude (Sonnet 4)'}`);
     instructions.push(`Konu: ${topic}`);
     instructions.push(`Ana Anahtar Kelime: ${mainKeyword}`);
 
@@ -422,7 +422,7 @@ export default function AnalyzePage() {
                   onChange={(e) => setAiProvider(e.target.value as 'groq' | 'claude')}
                   options={[
                     { value: 'groq', label: '🚀 Groq (Llama 3.3 70B - Hızlı)' },
-                    { value: 'claude', label: '🧠 Claude (Sonnet 3.5 - Kaliteli)' },
+                    { value: 'claude', label: '🧠 Claude (Sonnet 4 - En Kaliteli)' },
                   ]}
                   helperText="İçerik oluşturma için kullanılacak AI modeli"
                 />
