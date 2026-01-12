@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Select from '@/components/ui/Select';
+import KeywordSelector from '@/components/content/KeywordSelector';
 import { Search, CheckCircle, XCircle, AlertCircle, TrendingUp, Sparkles, Copy, Save } from 'lucide-react';
 import type { FullCompetitorAnalysisResult } from '@/types/competitor';
 import type { GenerateContentResponse } from '@/types/api';
@@ -18,6 +19,7 @@ export default function AnalyzePage() {
   const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
   const [topic, setTopic] = useState('');
   const [mainKeyword, setMainKeyword] = useState('');
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [wordCount, setWordCount] = useState(1500);
   const [contentType, setContentType] = useState('Blog Yazısı');
   const [tone, setTone] = useState('Profesyonel');
@@ -133,7 +135,7 @@ export default function AnalyzePage() {
       }
 
       // Collect keywords
-      const keywords: string[] = [mainKeyword];
+      const keywords: string[] = [mainKeyword, ...selectedKeywords];
       if (selectedStrategies.useKeywordGap) {
         keywords.push(...results.stage5_aiStrategy.keywords.keywordGap.slice(0, 10));
       }
@@ -216,6 +218,7 @@ export default function AnalyzePage() {
     setError('');
     setTopic('');
     setMainKeyword('');
+    setSelectedKeywords([]);
     setUrls('');
   }
 
@@ -261,6 +264,13 @@ export default function AnalyzePage() {
                   placeholder="Örn: seo içerik yazımı"
                   value={mainKeyword}
                   onChange={(e) => setMainKeyword(e.target.value)}
+                />
+
+                <KeywordSelector
+                  topic={topic}
+                  mainKeyword={mainKeyword}
+                  selectedKeywords={selectedKeywords}
+                  onKeywordsChange={setSelectedKeywords}
                 />
 
                 <Input
@@ -337,7 +347,12 @@ export default function AnalyzePage() {
               <div className="space-y-4">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h4 className="font-semibold text-blue-900 mb-2">Konu: {topic}</h4>
-                  <p className="text-sm text-blue-700">Ana Kelime: {mainKeyword}</p>
+                  <p className="text-sm text-blue-700 mb-1">Ana Kelime: {mainKeyword}</p>
+                  {selectedKeywords.length > 0 && (
+                    <p className="text-sm text-blue-700 mb-1">
+                      İkincil Kelimeler: {selectedKeywords.join(', ')}
+                    </p>
+                  )}
                   <p className="text-sm text-blue-700">Tip: {contentType} | Ton: {tone}</p>
                 </div>
 
