@@ -24,8 +24,11 @@ export async function scrapeCompetitorURL(url: string): Promise<CompetitorAnalys
     '💡 Not: Puppeteer yüklendikten sonra bu dosyadaki\n' +
     '   yorumları kaldırın ve kodu aktif edin.'
   );
+}
 
-  /* Puppeteer yüklendiğinde bu kodu aktif edin:
+/* Puppeteer yüklendiğinde tüm bu kodu aktif edin ve yukarıdaki throw bloğunu silin:
+
+export async function scrapeCompetitorURL(url: string): Promise<CompetitorAnalysis> {
 
   let browser;
 
