@@ -24,6 +24,7 @@ export default function AnalyzePage() {
   const [contentType, setContentType] = useState('Blog Yazısı');
   const [tone, setTone] = useState('Profesyonel');
   const [purpose, setPurpose] = useState('Bilgilendirme');
+  const [aiProvider, setAiProvider] = useState<'groq' | 'claude'>('groq');
 
   // Stage 2 - URLs
   const [urls, setUrls] = useState('');
@@ -61,7 +62,7 @@ export default function AnalyzePage() {
     if (results && stage === 3) {
       updatePromptPreview();
     }
-  }, [selectedStrategies, results, stage]);
+  }, [selectedStrategies, results, stage, aiProvider]);
 
   function updatePromptPreview() {
     if (!results) return;
@@ -69,6 +70,7 @@ export default function AnalyzePage() {
     const instructions: string[] = [];
 
     instructions.push(`# İçerik Talebi`);
+    instructions.push(`AI Modeli: ${aiProvider === 'groq' ? '🚀 Groq (Llama 3.3 70B)' : '🧠 Claude (Sonnet 3.5)'}`);
     instructions.push(`Konu: ${topic}`);
     instructions.push(`Ana Anahtar Kelime: ${mainKeyword}`);
 
@@ -216,7 +218,7 @@ export default function AnalyzePage() {
           secondaryKeywords: keywords,
           competitorUrls: urls.split('\n').map(u => u.trim()).filter(Boolean),
           additionalInstructions: instructions.join('\n\n'),
-          aiProvider: 'groq',
+          aiProvider: aiProvider,
         }),
       });
 
@@ -412,6 +414,17 @@ export default function AnalyzePage() {
                     { value: 'Marka Bilinirliği', label: 'Marka Bilinirliği' },
                     { value: 'SEO Trafik', label: 'SEO Trafik' },
                   ]}
+                />
+
+                <Select
+                  label="Yapay Zeka Modeli"
+                  value={aiProvider}
+                  onChange={(e) => setAiProvider(e.target.value as 'groq' | 'claude')}
+                  options={[
+                    { value: 'groq', label: '🚀 Groq (Llama 3.3 70B - Hızlı)' },
+                    { value: 'claude', label: '🧠 Claude (Sonnet 3.5 - Kaliteli)' },
+                  ]}
+                  helperText="İçerik oluşturma için kullanılacak AI modeli"
                 />
 
                 {error && (
@@ -659,7 +672,12 @@ export default function AnalyzePage() {
               <div className="lg:col-span-1">
                 <Card className="sticky top-4">
                   <CardHeader>
-                    <CardTitle className="text-lg">📝 Canlı Prompt Önizlemesi</CardTitle>
+                    <CardTitle className="text-lg flex items-center justify-between">
+                      <span>📝 Canlı Prompt Önizlemesi</span>
+                      <span className="text-xs font-normal px-2 py-1 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 rounded-full">
+                        {aiProvider === 'groq' ? '🚀 Groq' : '🧠 Claude'}
+                      </span>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="bg-gray-900 text-gray-100 p-4 rounded-lg text-xs font-mono overflow-auto max-h-[600px]">
