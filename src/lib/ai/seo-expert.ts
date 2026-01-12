@@ -49,41 +49,141 @@ function extractJSON(text: string): any {
 export async function generateSEOContent(
   request: GenerateContentRequest
 ): Promise<GenerateContentResponse> {
+
+  // Parse additional instructions to extract specific requirements
+  const instructions = request.additionalInstructions || '';
+  const lines = instructions.split('\n');
+
+  // Extract H2 headings from instructions
+  let requiredH2s: string[] = [];
+  let requiredFAQs: string[] = [];
+  let contentGaps: string[] = [];
+  let minimumFAQCount = 4; // default
+
+  let inH2Section = false;
+  let inFAQSection = false;
+  let inContentGapSection = false;
+
+  lines.forEach(line => {
+    if (line.includes('## Kullanılacak H2 Başlıkları:')) {
+      inH2Section = true;
+      inFAQSection = false;
+      inContentGapSection = false;
+    } else if (line.includes('## Bu soruları SSS bölümüne ekle:')) {
+      inFAQSection = true;
+      inH2Section = false;
+      inContentGapSection = false;
+    } else if (line.includes('## Content Gap')) {
+      inContentGapSection = true;
+      inH2Section = false;
+      inFAQSection = false;
+    } else if (line.includes('##')) {
+      inH2Section = false;
+      inFAQSection = false;
+      inContentGapSection = false;
+    } else if (line.trim().startsWith('- ')) {
+      const content = line.trim().substring(2);
+      if (inH2Section) {
+        requiredH2s.push(content);
+      } else if (inFAQSection) {
+        requiredFAQs.push(content);
+      } else if (inContentGapSection) {
+        contentGaps.push(content);
+      }
+    }
+  });
+
+  if (requiredFAQs.length > 0) {
+    minimumFAQCount = Math.max(requiredFAQs.length, 4);
+  }
+
   const userPrompt = `
-# İçerik Talebi
+# ⚠️ ZORUNLU İÇERİK GEREKSİNİMLERİ ⚠️
+
+## 📏 ZORUNLU KELIME SAYISI
+**MİNİMUM KELIME SAYISI: ${request.wordCount} KELIME**
+⚠️ Bu mutlak bir gerekliliktir. ${request.wordCount} kelimeden az içerik KABUL EDİLMEZ!
+⚠️ Her section UZUN ve detaylı olmalı - kısa geçiştirme yasak!
+⚠️ Hedef: ${Math.ceil(request.wordCount * 1.1)}-${Math.ceil(request.wordCount * 1.2)} kelime arası
+
+${requiredH2s.length > 0 ? `
+## 📝 ZORUNLU H2 BAŞLIKLARI (MUTLAKA KULLANILMALI)
+Aşağıdaki H2 başlıklarını TAM OLARAK ve SIRASIYLA kullanmalısın:
+${requiredH2s.map((h, idx) => `${idx + 1}. ${h}`).join('\n')}
+
+⚠️ Bu başlıkları atlama, değiştirme veya farklı sırada kullanma!
+⚠️ Her başlık altında EN AZ 300-400 kelime detaylı içerik yaz!
+` : ''}
+
+${requiredFAQs.length > 0 ? `
+## ❓ ZORUNLU SSS SORULARI (MUTLAKA EKLENMELI)
+Aşağıdaki soruları SSS bölümüne ekle ve DETAYLI cevapla:
+${requiredFAQs.map((q, idx) => `${idx + 1}. ${q}`).join('\n')}
+
+⚠️ Her cevap EN AZ 100-150 kelime olmalı!
+⚠️ Toplamda EN AZ ${minimumFAQCount} soru-cevap olmalı!
+` : ''}
+
+${contentGaps.length > 0 ? `
+## 🎯 ZORUNLU KONU EKLEMELERİ (Rakiplerin Atladığı Konular)
+Aşağıdaki konuları içeriğe MUTLAKA dahil et:
+${contentGaps.map((gap, idx) => `${idx + 1}. ${gap}`).join('\n')}
+
+⚠️ Bu konuları detaylı şekilde işle, geçiştirme!
+` : ''}
+
+---
+
+# 📋 İçerik Detayları
 
 **Konu**: ${request.topic}
 **Ana Anahtar Kelime**: ${request.mainKeyword}
-**Hedef Kelime Sayısı**: ${request.wordCount} kelime (ÇOK ÖNEMLİ: Bu sayıyı mutlaka karşılayın!)
 **İçerik Tipi**: ${request.contentType}
 **Ton**: ${request.tone}
 ${request.intent ? `**Arama Niyeti**: ${request.intent}` : ''}
 
 ${request.secondaryKeywords && request.secondaryKeywords.length > 0 ? `
-**İkincil Anahtar Kelimeler**: ${request.secondaryKeywords.join(', ')}
-(Bu kelimeleri içerikte doğal şekilde kullan)
+**Kullanılacak Anahtar Kelimeler**:
+${request.secondaryKeywords.slice(0, 15).join(', ')}
+(Bu kelimeleri doğal şekilde içeriğe serpişir)
 ` : ''}
 
 ${request.competitorUrls && request.competitorUrls.length > 0 ? `
-**Rakip URL'ler**:
-${request.competitorUrls.map(url => `- ${url}`).join('\n')}
+**Rakip Analizi Yapıldı**: ${request.competitorUrls.length} rakip incelendi
+(Bu rakiplerden daha uzun ve daha kapsamlı içerik üret)
 ` : ''}
 
-${request.additionalInstructions ? `
-**Ek Talimatlar**: ${request.additionalInstructions}
-` : ''}
+---
 
-KRİTİK KURALLAR:
+# 🎯 KRİTİK KURALLAR
+
+## JSON Formatı
 1. Yanıtında SADECE geçerli JSON formatında veri döndür
 2. Hiçbir açıklama, yorum veya ek metin ekleme
-3. TÜRKÇE karakterler kullan, başka dil karakterleri kullanma
-4. İngilizce kelimeler yerine Türkçe kullan
-5. Direkt { ile başla ve } ile bitir
-6. İçerik MUTLAKA ${request.wordCount} kelime veya daha uzun olmalı
-7. Her section en az 200-300 kelime içermeli
-8. Detaylı, kapsamlı ve bilgilendirici yaz
-9. Örnekler, açıklamalar ve detaylar ekle
-10. Kısa cümlelerle geçiştirme, her konuyu derinlemesine işle
+3. TÜRKÇE karakterler kullan (ş, ğ, ü, ö, ç, ı)
+4. Direkt { ile başla ve } ile bitir
+
+## İçerik Uzunluğu (EN ÖNEMLİ!)
+5. ⚠️ İçerik MUTLAKA ${request.wordCount}+ kelime olmalı
+6. ⚠️ Giriş: EN AZ 200 kelime
+7. ⚠️ Her H2 section: EN AZ 350-500 kelime
+8. ⚠️ Her H3 subsection: EN AZ 150-200 kelime
+9. ⚠️ Her FAQ cevabı: EN AZ 100-150 kelime
+10. ⚠️ Sonuç: EN AZ 200 kelime
+
+## İçerik Kalitesi
+11. Detaylı, kapsamlı ve bilgilendirici yaz
+12. Örnekler, açıklamalar ve pratik bilgiler ekle
+13. Kısa cümlelerle geçiştirme - her konuyu derinlemesine işle
+14. Liste, tablo, örnek senaryolar kullan
+15. Her paragraf 4-6 cümle içermeli
+
+## FAQ Gereksinimleri
+16. ⚠️ EN AZ ${minimumFAQCount} adet soru-cevap ekle
+17. ⚠️ Her cevap 100-150 kelime arası olmalı
+18. ⚠️ content.faq dizisine ekle, boş bırakma!
+
+⚠️⚠️⚠️ TEKRAR UYARI: ${request.wordCount} KELİMEDEN AZ İÇERİK ÜRETİRSEN BAŞARISIZ SAYILIR! ⚠️⚠️⚠️
 `;
 
   console.log('=== Generating content with AI ===');
